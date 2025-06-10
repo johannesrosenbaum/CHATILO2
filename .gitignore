@@ -1,0 +1,34 @@
+﻿# Dependencies
+node_modules/
+*/node_modules/
+
+# Docker Images
+*.tar
+
+# Build outputs
+build/
+dist/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+
+# Cache
+.cache/
+*/.cache/
+
+# MongoDB binaries
+*.exe
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
