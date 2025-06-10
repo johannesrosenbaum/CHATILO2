@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: chatilo-mongodb-prod
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: chatilo
+    volumes:
+      - mongodb_prod_data:/data/db
+    networks:
+      - chatilo-prod-network
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.prod
+    container_name: chatilo-server-prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 1113
+      MONGODB_URI: ${MONGODB_URI}
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - ./server/uploads:/app/uploads
+    depends_on:
+      - mongodb
+    networks:
+      - chatilo-prod-network
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.prod
+    container_name: chatilo-client-prod
+    restart: always
+    depends_on:
+      - server
+    networks:
+      - chatilo-prod-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: chatilo-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - client
+      - server
+    networks:
+      - chatilo-prod-network
+
+volumes:
+  mongodb_prod_data:
+
+networks:
+  chatilo-prod-network:
+    driver: bridge

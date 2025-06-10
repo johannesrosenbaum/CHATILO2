@@ -1,0 +1,89 @@
+services:
+  # MongoDB Database
+  chatilo-mongo:
+    image: mongo:7.0-jammy
+    container_name: chatilo-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: chatilo
+    ports:
+      - "27017:27017"
+    volumes:
+      - chatilo_mongo_data:/data/db
+      - chatilo_mongo_config:/data/configdb
+    networks:
+      - chatilo-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # Backend Server
+  chatilo-server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: chatilo-server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 1113
+      MONGODB_URI: mongodb://admin:admin123@chatilo-mongo:27017/chatilo?authSource=admin
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production-environment
+      CORS_ORIGINS: http://localhost:1234,http://localhost:3000,http://chatilo-client
+    ports:
+      - "1113:1113"
+    volumes:
+      - chatilo_uploads:/app/uploads
+    networks:
+      - chatilo-network
+    depends_on:
+      chatilo-mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:1113/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Client
+  chatilo-client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: http://localhost:1113
+        REACT_APP_SOCKET_URL: http://localhost:1113
+    container_name: chatilo-client
+    restart: unless-stopped
+    ports:
+      - "1234:80"
+    networks:
+      - chatilo-network
+    depends_on:
+      chatilo-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  chatilo_mongo_data:
+    driver: local
+  chatilo_mongo_config:
+    driver: local
+  chatilo_uploads:
+    driver: local
+
+networks:
+  chatilo-network:
+    driver: bridge
+    name: chatilo-network

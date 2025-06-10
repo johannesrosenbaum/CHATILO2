@@ -1,0 +1,12 @@
+export const DEFAULT_CHAT_ROOM_RADIUS = 20; // in kilometers
+export const MAX_MESSAGE_LENGTH = 500; // maximum length of a message
+export const IMAGE_GALLERY_LIMIT = 100; // maximum number of images in the gallery
+export const EVENT_CHAT_ROOM_DURATION = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+export const LOCATION_PERMISSION_MESSAGE = "Please enable location services to access local chat rooms.";
+export const DEFAULT_CHAT_ROOM_NAME = "General Chat"; // default name for new chat rooms
+export const LIKE_LIMIT = 1000; // maximum likes a message can receive before being capped
+export const USER_LOCATION_UPDATE_INTERVAL = 60000; // update user location every minute
+export const MAX_USERS_IN_CHAT_ROOM = 50; // maximum number of users allowed in a chat room
+export const IMAGE_UPLOAD_SIZE_LIMIT = 5 * 1024 * 1024; // 5 MB limit for image uploads
+export const AUDIO_UPLOAD_SIZE_LIMIT = 10 * 1024 * 1024; // 10 MB limit for audio uploads
+export const VIDEO_UPLOAD_SIZE_LIMIT = 50 * 1024 * 1024; // 50 MB limit for video uploads
