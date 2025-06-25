@@ -3,17 +3,16 @@ import {
   AppBar,
   Toolbar,
   Typography,
-  IconButton,
   Avatar,
   Box,
   Fade,
   Backdrop
 } from '@mui/material';
 import {
-  Menu as MenuIcon,
   Person,
   Settings,
-  Info
+  Info,
+  Logout
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
 import { useAuth } from '../contexts/AuthContext';
@@ -46,7 +45,7 @@ const GlassAppBar = styled(AppBar)(() => ({
   borderBottom: '1px solid rgba(102, 126, 234, 0.1)',
   boxShadow: '0 8px 32px rgba(102, 126, 234, 0.15)',
   color: '#2d3748',
-  height: 56, // KLEINER: von 64 auf 56px
+  height: 56,
   '&::before': {
     content: '""',
     position: 'absolute',
@@ -59,7 +58,7 @@ const GlassAppBar = styled(AppBar)(() => ({
 }));
 
 const FixedToolbar = styled(Toolbar)(() => ({
-  height: 56, // ANGEPASST: von 64 auf 56px
+  height: 56,
   minHeight: 56,
   paddingRight: 80,
 }));
@@ -79,7 +78,7 @@ const LogoIcon = styled(Box)(() => ({
 }));
 
 const OverflowAvatar = styled(Avatar)(() => ({
-  width: 64, // GRÖSSER: von 56 auf 64px
+  width: 64,
   height: 64,
   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
   border: '3px solid rgba(255,255,255,0.9)',
@@ -87,10 +86,10 @@ const OverflowAvatar = styled(Avatar)(() => ({
   cursor: 'pointer',
   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
   position: 'absolute',
-  top: 14, // PERFEKT: 3/4 im Header (42px) + 1/4 darunter (16px) = 56/4*3 = 42 - 32 = 10 + padding
+  top: 14,
   right: 16,
   zIndex: 1000,
-  fontSize: '1.5rem', // GRÖSSER: Text im Avatar
+  fontSize: '1.5rem',
   '&:hover': {
     transform: 'scale(1.1)',
     animation: `${pulseGlow} 1.5s infinite`,
@@ -110,7 +109,7 @@ const MenuContainer = styled(Box)(() => ({
 const MenuCircle = styled(Box)<{ delay: number; active: boolean; angle: number }>(({ delay, active, angle }) => {
   const avatarX = typeof window !== 'undefined' ? window.innerWidth - 48 : 300;
   const avatarY = 46;
-  const radius = 110; // GRÖSSER: von 90 auf 110px für mehr Abstand
+  const radius = 110;
   
   const adjustedAngle = angle - 45;
   
@@ -145,12 +144,8 @@ const MenuCircle = styled(Box)<{ delay: number; active: boolean; angle: number }
   };
 });
 
-interface MobileHeaderProps {
-  onMenuClick: () => void;
-}
-
-const MobileHeader: React.FC<MobileHeaderProps> = ({ onMenuClick }) => {
-  const { user } = useAuth();
+const Navigation: React.FC = () => {
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -171,23 +166,18 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({ onMenuClick }) => {
         case 'info':
           console.log('Info modal öffnen');
           break;
+        case 'logout':
+          logout();
+          navigate('/login');
+          break;
       }
     }, 300);
   };
 
   return (
     <>
-      <GlassAppBar position="fixed">
+      <GlassAppBar position="static">
         <FixedToolbar>
-          <IconButton
-            edge="start"
-            color="inherit"
-            onClick={onMenuClick}
-            sx={{ mr: 2 }}
-          >
-            <MenuIcon />
-          </IconButton>
-          
           <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, justifyContent: 'center' }}>
             <LogoIcon>
               <img 
@@ -215,34 +205,40 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({ onMenuClick }) => {
 
       {menuOpen && (
         <MenuContainer>
-          {/* Profile Circle - mit größerem Abstand */}
           <MenuCircle
             delay={0.1}
             active={menuOpen}
-            angle={225} // GEÄNDERT: von 210° auf 225° für mehr Abstand
+            angle={225}
             onClick={() => handleMenuItemClick('profile')}
           >
             <Person sx={{ color: '#667eea', fontSize: 20 }} />
           </MenuCircle>
 
-          {/* Settings Circle - bleibt zentral */}
           <MenuCircle
             delay={0.2}
             active={menuOpen}
-            angle={180} // BLEIBT: 180° (direkt links)
+            angle={180}
             onClick={() => handleMenuItemClick('settings')}
           >
             <Settings sx={{ color: '#667eea', fontSize: 20 }} />
           </MenuCircle>
 
-          {/* Info Circle - mit größerem Abstand */}
           <MenuCircle
             delay={0.3}
             active={menuOpen}
-            angle={135} // GEÄNDERT: von 150° auf 135° für mehr Abstand
+            angle={135}
             onClick={() => handleMenuItemClick('info')}
           >
             <Info sx={{ color: '#667eea', fontSize: 20 }} />
+          </MenuCircle>
+
+          <MenuCircle
+            delay={0.4}
+            active={menuOpen}
+            angle={90}
+            onClick={() => handleMenuItemClick('logout')}
+          >
+            <Logout sx={{ color: '#667eea', fontSize: 20 }} />
           </MenuCircle>
         </MenuContainer>
       )}
@@ -250,4 +246,4 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({ onMenuClick }) => {
   );
 };
 
-export default MobileHeader;
+export default Navigation;

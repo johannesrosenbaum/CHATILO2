@@ -4,17 +4,17 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 
-// Import components
+// KORRIGIERTE IMPORTS - pages statt components!
 import Navigation from './components/Navigation';
-import Login from './components/Login';
-import Register from './components/Register';
-import ChatRoom from './components/ChatRoom';
-import UserProfile from './components/UserProfile';
-import LocationSettings from './components/LocationSettings';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import ChatPage from './pages/ChatPage';
+import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
 
 // Import context providers
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { LocationProvider } from './contexts/LocationContext';
+import { SocketProvider } from './contexts/SocketContext';
 
 // Material-UI Theme
 const theme = createTheme({
@@ -79,7 +79,7 @@ function AppContent() {
             path="/login" 
             element={
               <PublicRoute>
-                <Login />
+                <LoginPage />
               </PublicRoute>
             } 
           />
@@ -87,7 +87,7 @@ function AppContent() {
             path="/register" 
             element={
               <PublicRoute>
-                <Register />
+                <RegisterPage />
               </PublicRoute>
             } 
           />
@@ -98,7 +98,7 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Navigation />
-                <ChatRoom />
+                <ChatPage />
               </ProtectedRoute>
             } 
           />
@@ -107,16 +107,16 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Navigation />
-                <UserProfile />
+                <ProfilePage />
               </ProtectedRoute>
             } 
           />
           <Route 
-            path="/location" 
+            path="/settings" 
             element={
               <ProtectedRoute>
                 <Navigation />
-                <LocationSettings />
+                <SettingsPage />
               </ProtectedRoute>
             } 
           />
@@ -170,9 +170,9 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <LocationProvider>
+        <SocketProvider>
           <AppContent />
-        </LocationProvider>
+        </SocketProvider>
       </AuthProvider>
     </ThemeProvider>
   );
