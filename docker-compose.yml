@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # MongoDB Database
   chatilo-mongo:
@@ -33,8 +35,8 @@ services:
       NODE_ENV: production
       PORT: 1113
       MONGODB_URI: mongodb://admin:admin123@chatilo-mongo:27017/chatilo?authSource=admin
-      JWT_SECRET: your-super-secret-jwt-key-change-in-production-environment
-      CORS_ORIGINS: http://localhost:1234,http://localhost:3000,http://chatilo-client
+      JWT_SECRET: chatilo-super-secret-production-key-2025
+      CORS_ORIGINS: https://chatilo.de,http://chatilo.de,https://www.chatilo.de,http://www.chatilo.de,https://api.chatilo.de,http://api.chatilo.de,http://localhost:1234,http://localhost:3000
     ports:
       - "1113:1113"
     volumes:
@@ -57,8 +59,8 @@ services:
       context: ./client
       dockerfile: Dockerfile
       args:
-        REACT_APP_API_URL: http://localhost:1113
-        REACT_APP_SOCKET_URL: http://localhost:1113
+        REACT_APP_API_URL: https://api.chatilo.de
+        REACT_APP_SOCKET_URL: wss://api.chatilo.de
     container_name: chatilo-client
     restart: unless-stopped
     ports:

@@ -45,36 +45,79 @@ const server = http.createServer(app);
 
 console.log('🔧 DEBUG: Express app and HTTP server created');
 
-// CORS Configuration
+// CORS Configuration für Production mit Domain
+const allowedOrigins = [
+  'https://chatilo.de',
+  'http://chatilo.de', 
+  'https://www.chatilo.de',
+  'http://www.chatilo.de',
+  'https://api.chatilo.de',
+  'http://api.chatilo.de',
+  // Development
+  'http://localhost:1234',
+  'http://localhost:3000',
+  'http://82.165.140.194:1234',
+  'http://82.165.140.194:1113'
+];
+
 const corsOptions = {
-  origin: [
-    'http://localhost:1234',
-    'http://localhost:3000',
-    'http://192.168.178.82:1234'
-  ],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    console.log('🔍 CORS Check - Origin:', origin);
+    // TEMPORÄR: Alle Origins erlauben für Debugging
+    return callback(null, true);
+  },
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With', 
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Cache-Control',
+    'X-Access-Token'
+  ]
 };
 
 app.use(cors(corsOptions));
 
-// Socket.IO Configuration
+// Socket.IO Configuration - Updated to match CORS
 const io = new Server(server, {
   cors: {
-    origin: [
-      'http://localhost:1234',
-      'http://localhost:3000'
-    ],
+    origin: function (origin, callback) {
+      // Same logic as Express CORS
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      if (origin.match(/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/)) {
+        return callback(null, true);
+      }
+      
+      if (origin.match(/^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)\d+\.\d+(:\d+)?$/)) {
+        return callback(null, true);
+      }
+      
+      return callback(null, false);
+    },
     methods: ['GET', 'POST'],
     credentials: true,
     transports: ['websocket', 'polling']
   }
 });
 
-console.log('🔧 DEBUG: Socket.IO server created with CORS:', {
-  origins: ['http://localhost:1234', 'http://localhost:3000'],
-  transports: ['websocket', 'polling']
-});
+console.log('🔧 DEBUG: Socket.IO server created with dynamic CORS');
+console.log('🔧 DEBUG: Allowed origins:', allowedOrigins);
 
 // Middleware
 app.use(express.json({ limit: '10mb' }));
@@ -165,7 +208,7 @@ server.listen(PORT, () => {
   console.log('🔧 DEBUG: Server startup complete');
   console.log(`   Server address: http://localhost:${PORT}`);
   console.log('   Socket.IO ready for connections');
-  console.log('   CORS origins:', corsOptions.origin);
+  console.log('   CORS origins:', allowedOrigins);
   console.log('   Process ID:', process.pid);
   console.log('   Memory usage:', process.memoryUsage());
   console.log('   Uptime:', process.uptime(), 'seconds');

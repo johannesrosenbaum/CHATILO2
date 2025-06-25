@@ -13,14 +13,20 @@ RUN npm install --legacy-peer-deps --force && \
 # Copy source code
 COPY . .
 
-# Build environment variables
-ENV NODE_ENV=production
-ENV GENERATE_SOURCEMAP=false
-ENV REACT_APP_API_URL=http://localhost:1113
-ENV REACT_APP_SOCKET_URL=http://localhost:1113
-ENV CI=false
+# Accept build arguments
+ARG REACT_APP_API_URL=http://82.165.140.194:1113
+ARG REACT_APP_SOCKET_URL=http://82.165.140.194:1113
 
-# Build the application
+# Build environment variables - TRUE DEVELOPMENT MODE
+ENV NODE_ENV=development
+ENV GENERATE_SOURCEMAP=true
+ENV REACT_APP_API_URL=${REACT_APP_API_URL}
+ENV REACT_APP_SOCKET_URL=${REACT_APP_SOCKET_URL}
+ENV CI=false
+ENV DISABLE_NEW_JSX_TRANSFORM=true
+ENV FAST_REFRESH=false
+
+# Build the application - DEVELOPMENT BUILD
 RUN npm run build
 
 # Production stage
