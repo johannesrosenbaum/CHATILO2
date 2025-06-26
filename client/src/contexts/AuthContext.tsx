@@ -1,39 +1,38 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 export interface User {
+  id: string;
   _id?: string;
-  id?: string;
   username: string;
   email: string;
   bio?: string;
   avatar?: string;
   createdAt?: string;
-  updatedAt?: string;
   locationEnabled?: boolean;
-  notificationsEnabled?: boolean; // HINZUGEFÜGT
-  isActive?: boolean; // HINZUGEFÜGT
-  lastSeen?: string; // HINZUGEFÜGT
+  notificationsEnabled?: boolean;
+  isActive?: boolean;
+  lastSeen?: string;
+  updatedAt?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (username: string, email: string, password: string) => Promise<any>;
+  error: string | null;
+  login: (email: string, password: string) => Promise<User | null>;
+  register: (username: string, email: string, password: string) => Promise<User | null>;
   logout: () => void;
-  updateUser: (userData: Partial<User>) => Promise<boolean>;
+  updateProfile: (data: Partial<User>) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+const getApiUrl = () => {
+  if (window.location.hostname === 'chatilo.de' || window.location.hostname.includes('82.165.140.194')) {
+    return 'https://api.chatilo.de';
   }
-  return context;
+  return 'http://localhost:1113';
 };
 
 interface AuthProviderProps {
@@ -43,82 +42,53 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(true); // ADD THIS
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const API_BASE_URL = 'http://localhost:1113';
-
-  // Check for existing token on mount
   useEffect(() => {
     const checkStoredToken = async () => {
       const storedToken = localStorage.getItem('token');
-      
       if (storedToken) {
-        console.log('🔐 Checking stored token: Token found');
         setToken(storedToken);
-        
         try {
           console.log('👤 Fetching user data...');
-          const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          const API_URL = getApiUrl();
+          const response = await fetch(`${API_URL}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${storedToken}`
             }
           });
 
           if (response.ok) {
-            const data = await response.json();
-            console.log('✅ User data received:', data);
-            
-            // 🔥 KORRIGIERT: Detaillierte User-Daten-Verarbeitung mit DEBUG
-            console.log('🔧 DEBUG: Processing user data...');
-            console.log('   Raw data object:', data);
-            console.log('   data.user object:', data.user);
-            console.log('   data.user._id:', data.user?._id);
-            console.log('   data.user.id:', data.user?.id);
-            console.log('   data.user.locationEnabled:', data.user?.locationEnabled);
-            
-            const userData = {
-              ...data.user,
-              // 🔥 KORRIGIERT: Stelle sicher dass BEIDE ID-Felder gesetzt sind
-              id: data.user._id || data.user.id,
-              _id: data.user._id || data.user.id,
-              // 🔥 KORRIGIERT: locationEnabled standardmäßig TRUE (außer explizit false)
-              locationEnabled: data.user.locationEnabled !== false // Default true
-            };
-            
-            console.log('🔧 DEBUG: Processed user data:');
-            console.log('   Final userData object:', userData);
-            console.log('   Final id:', userData.id);
-            console.log('   Final _id:', userData._id);
-            console.log('   Final locationEnabled:', userData.locationEnabled);
-            console.log('   Final username:', userData.username);
-            
-            setUser(userData);
+            const userData = await response.json();
+            setUser(userData.user);
+            console.log('✅ User authenticated:', userData.user);
           } else {
-            console.log('⚠️ Token invalid, clearing storage');
+            console.log('❌ Token invalid, removing...');
             localStorage.removeItem('token');
             setToken(null);
-            setUser(null);
-            console.log('⚠️ Please login again');
           }
         } catch (error) {
-          console.error('❌ Auth initialization error:', error);
+          console.error('❌ Auth check failed:', error);
           localStorage.removeItem('token');
           setToken(null);
-          setUser(null);
         }
       }
-      
       setLoading(false);
     };
 
     checkStoredToken();
-  }, [API_BASE_URL]);
+  }, []);
 
   const register = async (username: string, email: string, password: string) => {
-    console.log('📝 Attempting registration for:', email);
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      setError(null);
+
+      const API_URL = getApiUrl();
+      console.log('🔗 Register API URL:', API_URL);
+
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -126,17 +96,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         body: JSON.stringify({ username, email, password }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Registration failed');
+      }
+
       const data = await response.json();
 
-      if (response.ok) {
-        console.log('✅ Registration successful, storing token');
+      if (data.token) {
         localStorage.setItem('token', data.token);
-        setToken(data.token);
-        
-        // Create complete user object
-        const completeUser: User = {
+        const userWithDefaults: User = {
           id: data.user._id || data.user.id,
-          _id: data.user._id || data.user.id,
+          _id: data.user._id,
           username: data.user.username,
           email: data.user.email,
           bio: data.user.bio,
@@ -148,26 +119,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           createdAt: data.user.createdAt || new Date().toISOString(),
           updatedAt: data.user.updatedAt || new Date().toISOString()
         };
-        
-        setUser(completeUser);
-        setLoading(false);
-        return data;
-      } else {
-        setLoading(false);
-        throw new Error(data.message || 'Registration failed');
+        setUser(userWithDefaults);
+        setToken(data.token);
+        return userWithDefaults;
       }
+
+      throw new Error('No token received');
     } catch (error: any) {
-      console.error('❌ Registration error:', error.message);
-      setLoading(false);
+      console.error('❌ Registration error:', error);
+      setError(error.message || 'Registration failed. Please try again.');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string) => {
     try {
       setLoading(true);
-      console.log('🔐 Attempting login for:', email);
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      setError(null);
+
+      const API_URL = getApiUrl();
+      console.log('🔗 Login API URL:', API_URL);
+
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -175,17 +150,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         body: JSON.stringify({ email, password }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Login failed');
+      }
+
       const data = await response.json();
 
-      if (response.ok) {
-        console.log('✅ Login successful, storing token');
+      if (data.token) {
         localStorage.setItem('token', data.token);
-        setToken(data.token);
-        
-        // Create complete user object like in register
-        const completeUser: User = {
+        const userWithDefaults: User = {
           id: data.user._id || data.user.id,
-          _id: data.user._id || data.user.id,
+          _id: data.user._id,
           username: data.user.username,
           email: data.user.email,
           bio: data.user.bio,
@@ -197,73 +173,80 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           createdAt: data.user.createdAt || new Date().toISOString(),
           updatedAt: data.user.updatedAt || new Date().toISOString()
         };
-        
-        setUser(completeUser);
-        setLoading(false);
-        return true;
-      } else {
-        console.error('❌ Login failed:', data.message);
-        setLoading(false);
-        return false;
+        setUser(userWithDefaults);
+        setToken(data.token);
+        return userWithDefaults;
       }
+
+      throw new Error('No token received');
     } catch (error: any) {
-      console.error('❌ Login error:', error.message);
+      console.error('❌ Login error:', error);
+      setError(error.message || 'Login failed. Please try again.');
+      throw error;
+    } finally {
       setLoading(false);
-      return false;
     }
-  }, [API_BASE_URL]);
+  };
 
-  const logout = useCallback(() => {
-    console.log('🚪 Logging out user');
+  const logout = () => {
     localStorage.removeItem('token');
-    setToken(null);
     setUser(null);
-    setLoading(false); // ADD THIS
-  }, []);
+    setToken(null);
+    setError(null);
+    console.log('👋 User logged out');
+  };
 
-  const updateUser = useCallback(async (userData: Partial<User>): Promise<boolean> => {
+  const updateProfile = async (data: Partial<User>): Promise<boolean> => {
     try {
-      console.log('📝 Updating user profile:', userData);
-      
-      const token = localStorage.getItem('token');
       if (!token) {
-        throw new Error('No token found');
+        throw new Error('Not authenticated');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+      const API_URL = getApiUrl();
+      const response = await fetch(`${API_URL}/api/auth/profile`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(userData)
+        body: JSON.stringify(data)
       });
 
       if (response.ok) {
         const updatedUser = await response.json();
-        console.log('✅ Profile updated successfully:', updatedUser);
-        setUser(updatedUser.user || updatedUser);
+        setUser(updatedUser.user);
         return true;
-      } else {
-        const errorData = await response.json();
-        console.error('❌ Profile update failed:', errorData);
-        return false;
       }
+
+      return false;
     } catch (error) {
-      console.error('❌ Error updating profile:', error);
+      console.error('❌ Profile update failed:', error);
       return false;
     }
-  }, [API_BASE_URL]);
+  };
 
   const value: AuthContextType = {
     user,
     token,
-    loading, // ADD THIS
+    loading,
+    error,
     login,
     register,
     logout,
-    updateUser
+    updateProfile
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

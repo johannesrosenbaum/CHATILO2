@@ -194,6 +194,27 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+const LogoContainer = styled(Box)(() => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  marginBottom: 32,
+}));
+
+const LogoIcon = styled(Box)(() => ({
+  width: 120,
+  height: 120,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginBottom: 16,
+  '& img': {
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+  }
+}));
+
 const LoginPage: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -262,17 +283,14 @@ const LoginPage: React.FC = () => {
     <GradientBackground>
       <Container maxWidth="sm">
         <GlassCard elevation={0}>
-          {/* CHATILO LOGO & TITLE */}
-          <Box textAlign="center" mb={4}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: 2 }}>
-              <ChatiloIcon>
-                <ChatiloSymbol>C</ChatiloSymbol>
-              </ChatiloIcon>
-              
-              <GradientTitle variant="h2" sx={{ mb: 0 }}>
-                CHATILO
-              </GradientTitle>
-            </Box>
+          {/* CHATILO LOGO & TITLE - ERSETZT DURCH NEUES LOGO */}
+          <LogoContainer>
+            <LogoIcon>
+              <img 
+                src="/Chatilo_pin.png" 
+                alt="CHATILO Logo" 
+              />
+            </LogoIcon>
             
             <Typography 
               variant="h6" 
@@ -285,7 +303,7 @@ const LoginPage: React.FC = () => {
             >
               Verbinde dich mit deiner Community
             </Typography>
-          </Box>
+          </LogoContainer>
 
           {/* ERROR/SUCCESS ALERTS */}
           {error && (
