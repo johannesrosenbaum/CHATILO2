@@ -12,12 +12,11 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const { user } = useAuth();
   const [isPlaying, setIsPlaying] = useState(false);
   
-  // Determine if this message is from the current user
-  const isOwnMessage = (message.sender?._id || message.userId) === (user?._id || user?.id);
-  
-  // Get username from message
+  const messageUserId = message.sender?._id || message.sender?.id || message.userId;
+  const currentUserId = user?.id || user?._id;
+  const isOwnMessage = messageUserId === currentUserId;
   const senderName = message.sender?.username || message.username || 'Unbekannt';
-  
+
   // Format timestamp
   const formatTime = (timestamp: Date | string) => {
     const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
@@ -122,7 +121,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         }}
       >
         {!isOwnMessage && (
-          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
             {senderName}
           </Typography>
         )}
