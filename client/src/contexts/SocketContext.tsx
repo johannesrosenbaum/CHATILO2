@@ -14,8 +14,7 @@ export interface Message {
   timestamp: Date;
   createdAt: Date;
   roomId: string;
-  // 🔥 HINZUGEFÜGT: chatRoom Property für Server-Kompatibilität
-  chatRoom?: string;  // <- NEU: Für Server Messages
+  chatRoom?: string;
   user?: {
     _id?: string;
     id?: string;
@@ -26,8 +25,15 @@ export interface Message {
     id?: string;
     username: string;
   };
-  type?: 'text' | 'image' | 'video';
+  type?: 'text' | 'image' | 'video' | 'gif';
   mediaUrl?: string;
+  mediaMetadata?: {
+    filename?: string;
+    size?: number;
+    duration?: number;
+    width?: number;
+    height?: number;
+  };
 }
 
 export interface ChatRoom {
@@ -75,16 +81,20 @@ export interface SocketContextType {
   isLocationLoading: boolean;
   locationAccuracy: number | null;
   joinRoom: (roomId: string) => void;
-  sendMessage: (content: string) => void;
+  sendMessage: (content: string, mediaData?: { type: 'image' | 'video' | 'gif', url: string, file?: File }) => void;
   messages: Message[];
   rooms: ChatRoom[];
   chatRooms: ChatRoom[];
+  roomMessages: Record<string, Message[]>;
+  isLoadingMessages: boolean;
   setRooms: (rooms: ChatRoom[]) => void;
   setCurrentRoom: (roomId: string | null) => void;
   setMessages: (messages: Message[]) => void;
   user: any;
   createEventRoom: (eventData: any) => Promise<ChatRoom | null>;
   likeMessage: (messageId: string) => Promise<void>;
+  loadRoomMessages: (roomId: string) => Promise<void>;
+  uploadMedia: (file: File, type: 'image' | 'video') => Promise<string | null>;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -121,6 +131,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const [currentLocationName, setCurrentLocationName] = useState<string>('Unknown Location');
   const [isLocationLoading, setIsLocationLoading] = useState<boolean>(false);
   const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+
+  // STATE für besseres Message Management
+  const [roomMessages, setRoomMessages] = useState<Record<string, Message[]>>({});
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
   const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:1113';
 
@@ -312,30 +326,24 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     
   }, []); // 🔥 NO dependencies to prevent recreation
 
-  // STABLE SEND MESSAGE - PREVENT ROOM REJOIN
-  const sendMessage = useCallback((content: string) => {
-    console.log('📤 Sending:', content);
-
-    if (!socketRef.current || !currentRoom) {
-      console.error('❌ Cannot send message - no socket or room');
-      return;
-    }
-
-    // 🔥 KORRIGIERT: Prevent unnecessary room changes during message send
-    console.log('🔧 SEND MESSAGE STATUS:');
-    console.log('   Current room:', currentRoom);
-    console.log('   Socket connected:', socketRef.current.connected);
-    console.log('   Messages count before send:', messages.length);
+  // Erweiterte sendMessage Funktion für Media
+  const sendMessage = useCallback((content: string, mediaData?: { type: 'image' | 'video' | 'gif', url: string, file?: File }) => {
+    if (!socketRef.current || !currentRoom || !user) return;
 
     const messageData = {
-      content: content.trim(),
+      content,
       chatRoom: currentRoom,
-      timestamp: new Date().toISOString()
+      roomId: currentRoom,
+      userId: user.id || user._id,
+      username: user.username,
+      timestamp: new Date(),
+      type: mediaData ? mediaData.type : 'text',
+      mediaUrl: mediaData?.url
     };
 
-    console.log('📤 EMITTING sendMessage with data:', messageData);
+    console.log('📤 Sending message:', messageData);
     socketRef.current.emit('sendMessage', messageData);
-  }, [currentRoom, messages.length]);
+  }, [currentRoom, user]);
 
   // STABLE DUMMY FUNCTIONS
   const createEventRoom = useCallback(async (eventData: any): Promise<ChatRoom | null> => {
@@ -346,6 +354,127 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const likeMessage = useCallback(async (messageId: string): Promise<void> => {
     console.log('👍 Liking message:', messageId);
   }, []);
+
+  // API URL Helper
+  const getApiUrl = () => {
+    if (window.location.hostname === 'chatilo.de' || window.location.hostname.includes('82.165.140.194')) {
+      return 'https://api.chatilo.de';
+    }
+    return 'http://localhost:1113';
+  };
+
+  // Nachrichten für spezifischen Raum laden
+  const loadRoomMessages = useCallback(async (roomId: string) => {
+    if (!roomId || isLoadingMessages) return;
+    
+    try {
+      setIsLoadingMessages(true);
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const API_URL = getApiUrl();
+      console.log(`📝 Loading messages for room: ${roomId}`);
+
+      const response = await fetch(`${API_URL}/api/chat/rooms/${roomId}/messages`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const roomMessagesData = await response.json();
+        console.log(`✅ Loaded ${roomMessagesData.length} messages for room ${roomId}`);
+        
+        setRoomMessages(prev => ({
+          ...prev,
+          [roomId]: roomMessagesData
+        }));
+        
+        setMessages(roomMessagesData);
+      }
+    } catch (error) {
+      console.error('❌ Failed to load room messages:', error);
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  }, [isLoadingMessages]);
+
+  // Media Upload Funktion
+  const uploadMedia = useCallback(async (file: File, type: 'image' | 'video'): Promise<string | null> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No auth token');
+
+      const API_URL = getApiUrl();
+      const formData = new FormData();
+      formData.append('media', file);
+      formData.append('type', type);
+
+      console.log(`📤 Uploading ${type}:`, file.name, `(${file.size} bytes)`);
+
+      const response = await fetch(`${API_URL}/api/media/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Media uploaded successfully:', data.url);
+        return data.url;
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('❌ Media upload error:', error);
+      return null;
+    }
+  }, []);
+
+  // Socket Event Listeners erweitern
+  useEffect(() => {
+    if (!socketRef.current || !user) return;
+
+    const handleNewMessage = (message: Message) => {
+      console.log('📨 New message received:', message);
+      
+      const roomId = message.roomId || message.chatRoom || currentRoom;
+      if (!roomId) return;
+
+      setRoomMessages(prev => ({
+        ...prev,
+        [roomId]: [...(prev[roomId] || []), message]
+      }));
+
+      if (roomId === currentRoom) {
+        setMessages(prev => [...prev, message]);
+      }
+    };
+
+    const handleJoinedRoom = (data: { roomId: string, messages: Message[] }) => {
+      console.log('✅ Joined room successfully:', data.roomId);
+      console.log(`📝 Received ${data.messages?.length || 0} messages`);
+      
+      if (data.messages) {
+        setRoomMessages(prev => ({
+          ...prev,
+          [data.roomId]: data.messages
+        }));
+        setMessages(data.messages);
+      }
+    };
+
+    socketRef.current.on('newMessage', handleNewMessage);
+    socketRef.current.on('joined-room', handleJoinedRoom);
+
+    return () => {
+      socketRef.current?.off('newMessage', handleNewMessage);
+      socketRef.current?.off('joined-room', handleJoinedRoom);
+    };
+  }, [currentRoom, user]);
 
   // 🔥 KORRIGIERTE SOCKET CREATION - DEPENDENCY PROBLEM FIXED
   useEffect(() => {
@@ -677,15 +806,19 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     locationAccuracy,
     joinRoom,
     sendMessage,
-    messages,
+    messages: roomMessages[currentRoom || ''] || messages,
     rooms,
     chatRooms,
+    roomMessages,
+    isLoadingMessages,
     setRooms,
     setCurrentRoom,
     setMessages,
     user,
     createEventRoom,
-    likeMessage
+    likeMessage,
+    loadRoomMessages,
+    uploadMedia
   }), [
     currentRoom,
     userLocation,
@@ -697,9 +830,13 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     messages,
     rooms,
     chatRooms,
+    roomMessages,
+    isLoadingMessages,
     user,
     createEventRoom,
-    likeMessage
+    likeMessage,
+    loadRoomMessages,
+    uploadMedia
   ]); // SOCKET NICHT IN DEPS!
 
   console.log('🔧 STABLE: SocketProvider value ready');

@@ -62,119 +62,83 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     console.log('Opening image...');
   };
 
+  const renderMediaContent = () => {
+    if (!message.mediaUrl) return null;
+
+    switch (message.type) {
+      case 'image':
+      case 'gif':
+        return (
+          <Box sx={{ mt: 1, maxWidth: 300 }}>
+            <img
+              src={message.mediaUrl}
+              alt="Shared image"
+              style={{
+                width: '100%',
+                height: 'auto',
+                borderRadius: 8,
+                cursor: 'pointer'
+              }}
+              onClick={() => window.open(message.mediaUrl, '_blank')}
+            />
+          </Box>
+        );
+      
+      case 'video':
+        return (
+          <Box sx={{ mt: 1, maxWidth: 300 }}>
+            <video
+              src={message.mediaUrl}
+              controls
+              style={{
+                width: '100%',
+                height: 'auto',
+                borderRadius: 8
+              }}
+            />
+          </Box>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
   return (
     <Box
       sx={{
         display: 'flex',
         justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
-        mb: 1,
+        mb: 2,
       }}
     >
-      <Box
+      <Paper
         sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 1,
           maxWidth: '70%',
-          flexDirection: isOwnMessage ? 'row-reverse' : 'row'
+          backgroundColor: isOwnMessage ? 'primary.main' : 'background.paper',
+          color: isOwnMessage ? 'primary.contrastText' : 'text.primary',
+          borderRadius: 2,
+          padding: 1.5,
         }}
       >
-        {/* Avatar */}
-        <Avatar
-          sx={{
-            width: 32,
-            height: 32,
-            bgcolor: isOwnMessage ? 'primary.main' : 'secondary.main',
-            fontSize: '0.8rem'
-          }}
-        >
-          {senderName.charAt(0).toUpperCase()}
-        </Avatar>
-
-        {/* Message Bubble */}
-        <Paper
-          elevation={1}
-          sx={{
-            p: 1.5,
-            backgroundColor: isOwnMessage ? 'primary.main' : 'background.paper',
-            color: isOwnMessage ? 'primary.contrastText' : 'text.primary',
-            borderRadius: 2,
-            borderTopLeftRadius: isOwnMessage ? 2 : 0.5,
-            borderTopRightRadius: isOwnMessage ? 0.5 : 2,
-          }}
-        >
-          {/* Sender Name (only for other users) */}
-          {!isOwnMessage && (
-            <Typography 
-              variant="caption" 
-              sx={{ 
-                display: 'block', 
-                fontWeight: 'bold',
-                opacity: 0.8,
-                mb: 0.5 
-              }}
-            >
-              {senderName}
-            </Typography>
-          )}
-
-          {/* Image Content */}
-          {message.type === 'image' && message.mediaUrl && (
-            <Box sx={{ mb: 1 }}>
-              <img 
-                src={message.mediaUrl} 
-                alt="Shared image"
-                style={{ 
-                  maxWidth: '100%', 
-                  maxHeight: '300px', 
-                  borderRadius: '8px',
-                  display: 'block'
-                }}
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-            </Box>
-          )}
-
-          {/* Video Content */}
-          {message.type === 'video' && message.mediaUrl && (
-            <Box sx={{ mb: 1 }}>
-              <video 
-                controls
-                style={{ 
-                  maxWidth: '100%', 
-                  maxHeight: '300px', 
-                  borderRadius: '8px',
-                  display: 'block'
-                }}
-              >
-                <source src={message.mediaUrl} type="video/mp4" />
-                Dein Browser unterstützt das Video-Element nicht.
-              </video>
-            </Box>
-          )}
-
-          {/* Text Content */}
-          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+        {!isOwnMessage && (
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+            {senderName}
+          </Typography>
+        )}
+        
+        {message.content && (
+          <Typography variant="body1">
             {message.content}
           </Typography>
-
-          {/* Timestamp */}
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              display: 'block', 
-              textAlign: isOwnMessage ? 'left' : 'right',
-              opacity: 0.6,
-              mt: 0.5,
-              fontSize: '0.7rem'
-            }}
-          >
-            {formatTime(message.createdAt || message.timestamp)}
-          </Typography>
-        </Paper>
-      </Box>
+        )}
+        
+        {renderMediaContent()}
+        
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+          {formatTime(message.createdAt || message.timestamp)}
+        </Typography>
+      </Paper>
     </Box>
   );
 };
