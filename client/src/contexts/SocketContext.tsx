@@ -148,13 +148,8 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
   const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:1113';
   console.log('🌐 [DEBUG] SOCKET_URL:', SOCKET_URL);
 
-  // API URL Helper - consistent with socket URL
-  const getApiUrl = () => {
-    if (window.location.hostname === 'chatilo.de' || window.location.hostname.includes('82.165.140.194')) {
-      return 'https://api.chatilo.de';
-    }
-    return 'http://localhost:1113'; // Match server port
-  };
+  // API-URL immer relativ
+  const getApiUrl = () => '';
 
   // STABLE FUNCTIONS - KEINE DEPENDENCIES AUF SOCKET!
   const updateLocationName = useCallback(async (latitude: number, longitude: number) => {
@@ -185,7 +180,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
     try {
       let token = localStorage.getItem('token');
       if (!token) return;
-      const response = await fetch(`${getApiUrl()}/api/chat/rooms?limit=50`, {
+      const response = await fetch(`/api/chat/rooms?limit=50`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -227,7 +222,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
       // 🔥 TOKEN-VALIDIERUNG: Teste Token mit /auth/me vor dem Rooms-Call
       console.log(`🔐 VALIDATING token before rooms API call...`);
       
-      const validateResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:1113'}/api/auth/me`, {
+      const validateResponse = await fetch(`/api/auth/me`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -256,7 +251,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
         }
         
         // Validiere frischen Token
-        const freshValidateResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:1113'}/api/auth/me`, {
+        const freshValidateResponse = await fetch(`/api/auth/me`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -277,7 +272,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
 
       console.log(`🌍 FETCHING nearby rooms with VALIDATED token...`);
       
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:1113'}/api/chat/rooms/nearby`, {
+      const response = await fetch(`/api/chat/rooms/nearby`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -407,7 +402,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
       const API_URL = getApiUrl();
       console.log(`📝 Loading messages for room: ${roomId}`);
 
-      const response = await fetch(`${API_URL}/api/chat/rooms/${roomId}/messages`, {
+      const response = await fetch(`/api/chat/rooms/${roomId}/messages`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -445,7 +440,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
 
       console.log(`📤 Uploading ${type}:`, file.name, `(${file.size} bytes)`);
 
-      const response = await fetch(`${API_URL}/api/media/upload`, {
+      const response = await fetch(`/api/media/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -743,283 +738,4 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
 
   const detectLocation = useCallback(() => {
     const token = localStorage.getItem('token');
-    console.log(`🔧 DEBUG: detectLocation called`);
-    console.log(`   Token available: ${!!token}`);
-    console.log(`   Token preview: ${token ? token.substring(0, 20) + '...' : 'none'}`);
-    console.log(`   Component mounted: ${mountedRef.current}`);
-    
-    if (!token || !mountedRef.current) {
-      console.log(`❌ Missing requirements - token: ${!!token}, mounted: ${mountedRef.current}`);
-      return;
-    }
-    
-    setIsLocationLoading(true);
-    
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        if (!mountedRef.current) {
-          console.log('🔧 Component unmounted during location detection, skipping');
-          return;
-        }
-
-        const { latitude, longitude, accuracy } = position.coords;
-        console.log(`📍 Location detected: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`);
-
-        // Guard: Only proceed if latitude and longitude are valid numbers
-        if (
-          typeof latitude !== 'number' ||
-          typeof longitude !== 'number' ||
-          isNaN(latitude) ||
-          isNaN(longitude)
-        ) {
-          console.error('❌ Invalid geolocation data: latitude or longitude is NaN or not a number!', { latitude, longitude });
-          setIsLocationLoading(false);
-          // Optionally set an error state or show a message to the user here
-          return;
-        }
-
-        setUserLocation({ latitude, longitude });
-        setLocationAccuracy(accuracy);
-        setIsLocationLoading(false);
-
-        // BEIDE Funktionen aufrufen
-        updateLocationName(latitude, longitude);
-
-        // 🔥 SOFORTIGER Nearby Rooms Call
-        console.log(`🌍 IMMEDIATE: Calling fetchNearbyRoomsWithLocation`);
-        fetchNearbyRoomsWithLocation(latitude, longitude);
-      },
-      (error) => {
-        console.error('❌ DETAILED Geolocation error:');
-        console.error('   Error code:', error.code);
-        console.error('   Error message:', error.message);
-        console.error('   Error details:', error);
-        if (mountedRef.current) {
-          setIsLocationLoading(false);
-          // Fallback: fetch all public rooms if location fails
-          fetchAllPublicRooms();
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000
-      }
-    );
-  }, [updateLocationName, fetchNearbyRoomsWithLocation]); // 🔥 STABLE dependencies
-
-  // 🔥 KORRIGIERTE LOCATION DETECTION - TRIGGER NACH USER LOAD
-  useEffect(() => {
-    // User-Objekt normalisieren
-    const realUser = user && typeof user === 'object' && 'user' in user ? (user as any).user : user;
-    console.log('🔧 [LocationDetection] realUser:', realUser);
-    console.log('🔧 DEBUG: Location detection useEffect triggered');
-    console.log('   User available:', !!realUser);
-    console.log('   User locationEnabled:', realUser?.locationEnabled);
-    console.log('   UserLocation exists:', !!userLocation);
-    console.log('   Is location loading:', isLocationLoading);
-    console.log('   Socket exists:', !!socketRef.current);
-    console.log('   Component mounted:', mountedRef.current);
-    // 🔥 ERWEITERTE BEDINGUNGEN für Location Detection
-    if (!realUser || !mountedRef.current) {
-      console.log('❌ No user or component unmounted for location detection');
-      return;
-    }
-    if (!realUser.locationEnabled) {
-      console.log('❌ User location disabled');
-      return;
-    }
-    if (userLocation) {
-      console.log('✅ Location already detected');
-      return;
-    }
-    if (isLocationLoading) {
-      console.log('⏳ Location detection already in progress');
-      return;
-    }
-    console.log('📍 Starting location detection');
-    console.log(`   User: ${realUser?.username}`);
-    console.log(`   User ID: ${realUser?._id || realUser?.id}`);
-    // 🔥 SOFORTIGER START - kein Delay
-    console.log('🚀 STARTING location detection immediately');
-    detectLocation();
-  }, [user, userLocation, isLocationLoading, detectLocation]);
-
-  // 🔥 CRITICAL FIX: Auto-join room when roomId prop changes
-  useEffect(() => {
-    console.log('🔥 ROOM AUTO-JOIN: useEffect triggered with roomId:', roomId);
-    console.log('🔥 ROOM AUTO-JOIN: socketRef.current exists:', !!socketRef.current);
-    console.log('🔥 ROOM AUTO-JOIN: user exists:', !!user);
-    console.log('🔥 ROOM AUTO-JOIN: user?.username:', user?.username);
-    
-    // Only auto-join if we have a roomId, socket, and user
-    if (roomId && socketRef.current && user?.username) {
-      console.log('🔥 ROOM AUTO-JOIN: All conditions met, auto-joining room:', roomId);
-      // Use a small delay to ensure everything is ready
-      setTimeout(() => {
-        if (mountedRef.current && roomId) {
-          joinRoom(roomId);
-        }
-      }, 100);
-    } else {
-      console.log('🔥 ROOM AUTO-JOIN: Conditions not met:', {
-        roomId: !!roomId,
-        socket: !!socketRef.current,
-        user: !!user,
-        username: user?.username
-      });
-    }
-  }, [roomId, joinRoom, user?.username]); // Dependencies: roomId prop, joinRoom function, user.username
-
-  // CLEANUP ON UNMOUNT - 🔥 KORRIGIERT: mountedRef auf false setzen NACH cleanup
-  useEffect(() => {
-    mountedRef.current = true;
-    
-    return () => {
-      console.log('🔌 Component unmount cleanup starting');
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-      // 🔥 WICHTIG: mountedRef NACH cleanup auf false setzen
-      mountedRef.current = false;
-      console.log('🔌 Component unmount cleanup completed');
-    };
-  }, []);
-
-  // STABLE CONTEXT VALUE - SOCKET AUS REF
-  const value = useMemo<SocketContextType>(() => ({
-    socket: socketRef.current,
-    currentRoom,
-    roomId: roomId || null,
-    userLocation,
-    currentLocationName,
-    isLocationLoading,
-    locationAccuracy,
-    joinRoom,
-    sendMessage,
-    messages, // 🔥 KORRIGIERT: Verwende direkt messages, nicht roomMessages lookup
-    rooms,
-    chatRooms,
-    roomMessages,
-    isLoadingMessages,
-    setRooms,
-    setCurrentRoom,
-    setMessages,
-    user,
-    createEventRoom,
-    likeMessage,
-    loadRoomMessages,
-    uploadMedia,
-    isRoomsLoading
-  }), [
-    currentRoom,
-    roomId,
-    userLocation,
-    currentLocationName,
-    isLocationLoading,
-    locationAccuracy,
-    joinRoom,
-    sendMessage,
-    messages, // 🔥 KORRIGIERT
-    rooms,
-    chatRooms,
-    roomMessages,
-    isLoadingMessages,
-    user,
-    createEventRoom,
-    likeMessage,
-    loadRoomMessages,
-    uploadMedia,
-    isRoomsLoading
-  ]); // SOCKET NICHT IN DEPS!
-
-  console.log('🔧 STABLE: SocketProvider value ready');
-
-  // Ensure room joining logic works correctly
-  useEffect(() => {
-    if (roomId && socketRef.current) {
-      console.log('🔥 SocketProvider: Joining room', roomId);
-      socketRef.current.emit('joinRoom', roomId, (response: any) => {
-        if (response.success) {
-          console.log('✅ Room joined successfully:', roomId);
-          setCurrentRoom(roomId);
-        } else {
-          console.error('❌ Failed to join room:', response.error);
-        }
-      });
-    }
-  }, [roomId]);
-
-  // Beim Initialisieren des SocketContext
-  useEffect(() => {
-    // Typprüfung: user kann User oder {user: User} sein
-    let userData: any = user;
-    if (user && typeof user === 'object' && 'user' in user) {
-      userData = (user as any).user;
-    }
-    console.log('🔧 [SocketContext] User im Context:', userData);
-  }, [user]);
-
-  // Extrahiere das echte User-Objekt (falls verschachtelt)
-  function extractRealUser(user: any) {
-    if (user && typeof user === 'object' && 'user' in user && user.user && (user.user.id || user.user._id)) {
-      return user.user;
-    }
-    return user;
-  }
-  const realUser = extractRealUser(user);
-
-  // Debug: User-Objekt bei jedem Render und jeder Änderung loggen
-  useEffect(() => {
-    console.log('[DEBUG] Aktueller User im SocketContext:', realUser);
-  }, [realUser]);
-
-  // Retry-Mechanismus für Socket-Initialisierung
-  useEffect(() => {
-    if (!realUser || (!realUser.id && !realUser._id)) {
-      console.log('❌ [DEBUG] No user ID - waiting for user data', realUser);
-      // Retry nach kurzer Zeit, falls User später kommt
-      const retryTimeout = setTimeout(() => {
-        console.log('🔄 [DEBUG] Retry Socket-Initialisierung wegen fehlender User-ID...');
-        // useEffect wird durch user-Änderung erneut getriggert
-      }, 1000);
-      return () => clearTimeout(retryTimeout);
-    }
-    console.log('🚀 [DEBUG] Initialisiere Socket mit User:', realUser);
-    // ... bestehende Socket-Initialisierung, überall realUser statt user verwenden ...
-    // (Der eigentliche Code bleibt wie gehabt)
-  }, [realUser]);
-
-  return (
-    <SocketContext.Provider
-      value={{
-        socket: socketRef.current,
-        currentRoom,
-        roomId,
-        userLocation,
-        currentLocationName,
-        isLocationLoading,
-        locationAccuracy,
-        joinRoom: () => {}, // Dummy
-        sendMessage: () => {}, // Dummy
-        messages,
-        rooms,
-        chatRooms,
-        roomMessages,
-        isLoadingMessages,
-        setRooms,
-        setCurrentRoom,
-        setMessages,
-        user: realUser,
-        createEventRoom: async () => null,
-        likeMessage: async () => {},
-        loadRoomMessages: async () => {},
-        uploadMedia: async () => null,
-        isRoomsLoading
-      }}
-    >
-      {children}
-    </SocketContext.Provider>
-  );
-};
+    console.log(`

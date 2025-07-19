@@ -3,9 +3,6 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { User, AuthState, UpdateProfileData } from '../types';
 
-// Konfiguriere axios baseURL für Backend
-axios.defaults.baseURL = 'http://localhost:1113';
-
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, username: string) => Promise<void>;

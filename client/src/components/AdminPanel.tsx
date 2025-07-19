@@ -32,7 +32,7 @@ const AdminPanel: React.FC = () => {
   const authenticate = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:1113/api/admin/settings', {
+      const response = await axios.get('/api/admin/settings', {
         headers: { 'admin-token': adminToken }
       });
       
@@ -40,7 +40,7 @@ const AdminPanel: React.FC = () => {
       setIsAuthenticated(true);
       setMessage({ type: 'success', text: 'Admin-Zugang erfolgreich!' });
       
-      const statusResponse = await axios.get('http://localhost:1113/api/admin/status', {
+      const statusResponse = await axios.get('/api/admin/status', {
         headers: { 'admin-token': adminToken }
       });
       setStatus(statusResponse.data);
@@ -54,7 +54,7 @@ const AdminPanel: React.FC = () => {
 
   const updateSetting = async (key: string, value: any) => {
     try {
-      await axios.put(`http://localhost:1113/api/admin/settings/${key}`, 
+      await axios.put(`/api/admin/settings/${key}`, 
         { value },
         { headers: { 'admin-token': adminToken } }
       );

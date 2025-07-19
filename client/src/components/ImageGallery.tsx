@@ -61,7 +61,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ roomId, onClose }) => {
   const fetchImages = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:1113/api/chat/rooms/${roomId}/images`); // FIX: War 6999, muss 1113 sein!
+      const response = await axios.get(`/api/chat/rooms/${roomId}/images`);
       // Sort by likes count (most liked first)
       const sortedImages = response.data.sort((a: GalleryImage, b: GalleryImage) => 
         b.likesCount - a.likesCount

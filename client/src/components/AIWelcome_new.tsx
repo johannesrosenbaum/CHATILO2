@@ -77,7 +77,7 @@ const AIWelcome: React.FC<AIWelcomeProps> = ({ userLocation, nearbyPlaces = [] }
           return;
         }
 
-        const response = await fetch('http://localhost:1113/api/ai/welcome', {
+        const response = await fetch('/api/ai/welcome', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

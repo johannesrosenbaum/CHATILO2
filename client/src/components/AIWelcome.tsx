@@ -63,7 +63,7 @@ const AIWelcome: React.FC<AIWelcomeProps> = ({ userLocation, nearbyPlaces = [] }
     const fetchRegionalInfo = async () => {
       console.log('🔧 Fetching regional info...');
       try {
-        const response = await fetch('http://localhost:1113/api/ai/welcome', {
+        const response = await fetch('/api/ai/welcome', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

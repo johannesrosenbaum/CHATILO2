@@ -162,7 +162,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ roomId }) => {
 
       // Upload to server
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:1113/api/chat/upload-image', {
+      const response = await fetch('/api/chat/upload-image', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
