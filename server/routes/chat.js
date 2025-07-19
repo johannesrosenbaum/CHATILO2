@@ -67,65 +67,48 @@ const upload = multer({
 // Get nearby rooms based on location - KORRIGIERT
 router.get('/rooms/nearby', auth, async (req, res) => {
   try {
-    const { latitude, longitude } = req.query;
-    
-    console.log(`📍 Fetching STRUCTURED rooms for: ${latitude}, ${longitude}`);
-    console.log(`🔑 Authenticated user: ${req.user.username} (${req.user._id})`);
-    
-    // Verwende die korrekt importierte Funktion
-    const analysis = await getStructuredLocationAnalysis(
-      parseFloat(latitude), 
-      parseFloat(longitude)
-    );
-    
-    console.log(`✅ STRUCTURED analysis complete:`);
-    console.log(`   Location: ${analysis.location.name}`);
-    console.log(`   Places in radius: ${analysis.placesInRadius.length}`);
-    console.log(`   Neighborhoods: ${analysis.chatRoomStructure.neighborhoods.length}`);
-    
-    // Create structured chat rooms based on analysis
-    const structuredRooms = [];
-    
-    // Add neighborhood rooms (up to 6)
-    analysis.chatRoomStructure.neighborhoods.slice(0, 6).forEach((place, index) => {
-      structuredRooms.push({
-        _id: `room_${place.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${index}`,
-        name: place.name,
-        description: `Lokaler Chat für ${place.name}`,
-        location: {
-          type: 'Point',
-          coordinates: [place.lng, place.lat]
-        },
-        distance: place.distance,
-        distanceKm: Math.round(place.distance / 1000 * 10) / 10,
-        participants: global.getRoomParticipantCount ? global.getRoomParticipantCount(`room_${place.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${index}`) : 0, // Real participants
-        isPublic: true,
-        maxParticipants: place.type === 'city' ? 100 : 50,
-        radius: place.radius || 2000,
-        type: 'location', // Ändere von 'neighborhood' zu 'location'
-        placeType: place.type,
+    const { latitude, longitude, radius = 10000 } = req.query;
+    if (!latitude || !longitude) {
+      return res.status(400).json({ error: 'Latitude and longitude required' });
+    }
+    console.log(`📍 [GET] Fetching persistent nearby rooms for: ${latitude}, ${longitude}`);
+    // Verwende die gleiche Analyse wie im POST
+    const analysis = await getStructuredLocationAnalysis(parseFloat(latitude), parseFloat(longitude));
+    if (!analysis || !analysis.placesInRadius) {
+      return res.status(500).json({ error: 'Failed to analyze location' });
+    }
+    // Generiere die gleichen Room-IDs wie im POST
+    const ChatRoom = require('../models/ChatRoom');
+    const neighborhoodPlaces = analysis.placesInRadius.filter(p => p.distance <= 5000);
+    const regionalPlaces = analysis.placesInRadius.filter(p => p.distance > 5000 && p.distance <= 20000);
+    const roomIds = [
+      ...neighborhoodPlaces.map(place => generateRoomId(place.name, 'neighborhood')),
+      ...regionalPlaces.map(place => generateRoomId(place.name, 'regional')),
+      'global_de'
+    ];
+    // Hole alle passenden Räume aus der DB
+    const rooms = await ChatRoom.find({ _id: { $in: roomIds } }).lean();
+    // Füge ggf. den Deutschland-Chat als Fallback hinzu
+    if (!rooms.some(r => r._id === 'global_de')) {
+      rooms.push({
+        _id: 'global_de',
+        id: 'global_de',
+        name: 'Deutschland-Chat',
+        type: 'global',
+        subType: 'global',
+        participants: 0,
+        description: 'Überregionaler Chat für ganz Deutschland',
+        isActive: true,
+        location: null,
+        distance: null,
         createdAt: new Date(),
-        isActive: true
+        lastActivity: new Date()
       });
-    });
-    
-    console.log(`🏘️ Created ${structuredRooms.length} structured neighborhood rooms`);
-    
-    res.json({
-      success: true,
-      rooms: structuredRooms,
-      location: analysis.location,
-      totalPlacesFound: analysis.placesInRadius.length,
-      searchRadius: analysis.radiusConfig.neighborhood
-    });
-    
+    }
+    res.json({ rooms });
   } catch (error) {
-    console.error('❌ Error fetching structured rooms:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch nearby rooms',
-      details: error.message 
-    });
+    console.error('❌ Error fetching persistent nearby rooms:', error);
+    res.status(500).json({ error: 'Failed to fetch persistent nearby rooms', details: error.message });
   }
 });
 
