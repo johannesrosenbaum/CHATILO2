@@ -45,7 +45,7 @@ services:
     networks:
       - chatilo-network
 
-  # React Frontend (Nginx)
+  # React Frontend (Nginx) - Hauptservice für Web-Interface
   client:
     build:
       context: ./client
@@ -57,28 +57,9 @@ services:
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-      - ./server/uploads:/var/www/uploads:ro
-    depends_on:
-      - server
-    networks:
-      - chatilo-network
-
-  # Nginx Reverse Proxy (Alternative zu client service)
-  nginx:
-    image: nginx:alpine
-    container_name: chatilo-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
       - ./server/uploads:/var/www/uploads:ro
-      - client_build:/var/www/html:ro
     depends_on:
-      - client
       - server
     networks:
       - chatilo-network
@@ -87,8 +68,6 @@ volumes:
   mongodb_data:
     driver: local
   server_logs:
-    driver: local
-  client_build:
     driver: local
 
 networks:
