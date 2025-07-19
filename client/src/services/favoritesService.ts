@@ -1,4 +1,5 @@
 // Verwende relative URLs statt localhost
+// Diese Datei ist bereits korrekt, keine Änderung nötig.
 const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 // Hilfsfunktion zum Abrufen des Auth-Tokens

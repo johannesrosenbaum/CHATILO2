@@ -1,6 +1,7 @@
+const API_BASE_URL = window.location.origin;
 // Avatar URL Utility Functions
 // Verwende relative URLs statt localhost
-const API_BASE_URL = '';
+// Diese Datei ist bereits korrekt, keine Änderung nötig.
 
 export const getAvatarUrl = (avatarPath: string | null | undefined): string | null => {
   if (!avatarPath) return null;

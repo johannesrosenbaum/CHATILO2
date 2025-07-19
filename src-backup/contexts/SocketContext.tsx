@@ -114,15 +114,15 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
 
-  const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:1113';
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:1113';
+  const SOCKET_URL = window.location.origin;
+  const API_BASE_URL = window.location.origin + '/api';
 
   // Location Name Update - DEFINIERE ZUERST
   const updateLocationName = useCallback(async (lat: number, lng: number) => {
     try {
       console.log(`🔍 Fetching location name for: ${lat}, ${lng}`);
       
-      const response = await fetch(`${API_BASE_URL}/api/location/name?lat=${lat}&lng=${lng}`, {
+      const response = await fetch(`${API_BASE_URL}/location/name?lat=${lat}&lng=${lng}`, {
         headers:
          {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -152,7 +152,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       if (!token) return;
 
       const response = await fetch(
-        `${API_BASE_URL}/api/chat/rooms/nearby?latitude=${lat}&longitude=${lng}`,
+        `${API_BASE_URL}/chat/rooms/nearby?latitude=${lat}&longitude=${lng}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
