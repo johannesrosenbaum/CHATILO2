@@ -145,7 +145,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isRoomsLoading, setIsRoomsLoading] = useState<boolean>(false);
 
-  const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:1113';
+  // Dynamische Socket-URL basierend auf aktueller Domain
+  const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 
+    (window.location.protocol + '//' + window.location.hostname + 
+     (window.location.port ? ':' + window.location.port : ''));
   console.log('🌐 [DEBUG] SOCKET_URL:', SOCKET_URL);
 
   // API-URL immer relativ
@@ -738,4 +741,89 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
 
   const detectLocation = useCallback(() => {
     const token = localStorage.getItem('token');
-    console.log(`
+    console.log('🔍 Detecting location...');
+    
+    if (!token) {
+      console.log('❌ No token for location detection');
+      return;
+    }
+
+    if (navigator.geolocation) {
+      setIsLocationLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          console.log('📍 Location detected:', { latitude, longitude, accuracy });
+          
+          setUserLocation({ latitude, longitude });
+          setLocationAccuracy(accuracy);
+          setIsLocationLoading(false);
+          
+          // Update location name
+          await updateLocationName(latitude, longitude);
+          
+          // Fetch nearby rooms
+          await fetchNearbyRoomsWithLocation(latitude, longitude);
+        },
+        (error) => {
+          console.error('❌ Location error:', error);
+          setIsLocationLoading(false);
+          // Fallback to public rooms
+          fetchAllPublicRooms();
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000 // 5 minutes
+        }
+      );
+    } else {
+      console.log('❌ Geolocation not supported');
+      fetchAllPublicRooms();
+    }
+  }, [updateLocationName, fetchNearbyRoomsWithLocation, fetchAllPublicRooms]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, []);
+
+  // Context value
+  const value: SocketContextType = {
+    socket: socketRef.current,
+    currentRoom,
+    roomId: currentRoom,
+    userLocation,
+    currentLocationName,
+    isLocationLoading,
+    locationAccuracy,
+    joinRoom,
+    sendMessage,
+    messages,
+    rooms,
+    chatRooms,
+    roomMessages,
+    isLoadingMessages,
+    setRooms,
+    setCurrentRoom,
+    setMessages,
+    user,
+    createEventRoom,
+    likeMessage,
+    loadRoomMessages,
+    uploadMedia,
+    isRoomsLoading
+  };
+
+  return (
+    <SocketContext.Provider value={value}>
+      {children}
+    </SocketContext.Provider>
+  );
+};

@@ -1,4 +1,5 @@
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:1113';
+// Verwende relative URLs statt localhost
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 // Hilfsfunktion zum Abrufen des Auth-Tokens
 const getAuthToken = (): string | null => {

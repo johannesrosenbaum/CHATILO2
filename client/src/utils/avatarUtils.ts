@@ -1,5 +1,6 @@
 // Avatar URL Utility Functions
-const API_BASE_URL = 'http://localhost:1113';
+// Verwende relative URLs statt localhost
+const API_BASE_URL = '';
 
 export const getAvatarUrl = (avatarPath: string | null | undefined): string | null => {
   if (!avatarPath) return null;
