@@ -146,9 +146,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
   const [isRoomsLoading, setIsRoomsLoading] = useState<boolean>(false);
 
   // Dynamische Socket-URL basierend auf aktueller Domain
-  const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 
-    (window.location.protocol + '//' + window.location.hostname + 
-     (window.location.port ? ':' + window.location.port : ''));
+  const SOCKET_URL = window.location.origin;
   console.log('🌐 [DEBUG] SOCKET_URL:', SOCKET_URL);
 
   // API-URL immer relativ
@@ -292,6 +290,43 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
         setRooms(nearbyRooms);
         setChatRooms(nearbyRooms);
         console.log(`✅ ChatRooms updated with ${nearbyRooms.length} rooms`);
+        // NEU: Wenn keine Räume gefunden wurden, initialisiere persistente Räume
+        if (nearbyRooms.length === 0) {
+          console.log('⚠️ Keine Nearby-Räume gefunden, initialisiere persistente Räume per POST...');
+          const postResponse = await fetch(`/api/chat/rooms/nearby`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ latitude, longitude, radius: 10000 })
+          });
+          if (postResponse.ok) {
+            const newRooms = await postResponse.json();
+            setRooms(newRooms);
+            setChatRooms(newRooms);
+            console.log(`✅ Persistente Nearby-Räume initialisiert: ${newRooms.length} Räume`);
+            // IMMER: Räume nach POST nochmal per GET laden
+            const getResponse = await fetch(`/api/chat/rooms/nearby?latitude=${latitude}&longitude=${longitude}&radius=10000`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            if (getResponse.ok) {
+              const fetchedRooms = await getResponse.json();
+              const roomsArray = fetchedRooms.data || fetchedRooms.rooms || fetchedRooms || [];
+              setRooms(roomsArray);
+              setChatRooms(roomsArray);
+              console.log(`✅ Räume nach Initialisierung per GET geladen: ${roomsArray.length} Räume`);
+            } else {
+              console.error('❌ Fehler beim GET nach Initialisierung:', getResponse.status, getResponse.statusText);
+            }
+          } else {
+            console.error('❌ Fehler beim Initialisieren persistenter Räume:', postResponse.status, postResponse.statusText);
+          }
+        }
       } else {
         console.error(`❌ Nearby rooms API STILL failed after token validation:`);
         console.error(`   Status: ${response.status}`);

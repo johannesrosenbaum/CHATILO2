@@ -6,7 +6,6 @@ node_modules/
 *.tar
 
 # Build outputs
-build/
 dist/
 
 # Environment files

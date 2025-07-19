@@ -1,6 +1,6 @@
 // Verwende relative URLs statt localhost
 // Diese Datei ist bereits korrekt, keine Änderung nötig.
-const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+const API_BASE_URL = window.location.origin + '/api';
 
 // Hilfsfunktion zum Abrufen des Auth-Tokens
 const getAuthToken = (): string | null => {
@@ -41,7 +41,7 @@ class FavoritesService {
       ...options,
     };
 
-    const response = await fetch(`${API_BASE_URL}/api/auth${endpoint}`, config);
+    const response = await fetch(`${API_BASE_URL}/auth${endpoint}`, config);
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
