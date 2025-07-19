@@ -2,30 +2,42 @@ version: '3.8'
 
 services:
   # MongoDB Database
-  chatilo-mongo:
-    image: mongo:7.0-jammy
-    container_name: chatilo-mongo
+  mongodb:
+    image: mongo:6.0
+    container_name: chatilo-mongodb
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_ROOT_PASSWORD: chatilo123
       MONGO_INITDB_DATABASE: chatilo
     ports:
       - "27017:27017"
     volumes:
-      - chatilo_mongo_data:/data/db
-      - chatilo_mongo_config:/data/configdb
+      - mongodb_data:/data/db
+      - ./server/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
     networks:
       - chatilo-network
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 40s
+
+  # MongoDB Express (Optional - Web UI for MongoDB)
+  mongo-express:
+    image: mongo-express:latest
+    container_name: chatilo-mongo-express
+    restart: unless-stopped
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: chatilo123
+      ME_CONFIG_MONGODB_URL: mongodb://admin:chatilo123@mongodb:27017/
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: chatilo123
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mongodb
+    networks:
+      - chatilo-network
 
   # Backend Server
-  chatilo-server:
+  server:
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -34,58 +46,58 @@ services:
     environment:
       NODE_ENV: production
       PORT: 1113
-      MONGODB_URI: mongodb://admin:admin123@chatilo-mongo:27017/chatilo?authSource=admin
-      JWT_SECRET: chatilo-super-secret-production-key-2025
-      CORS_ORIGINS: https://chatilo.de,http://chatilo.de,https://www.chatilo.de,http://www.chatilo.de,https://api.chatilo.de,http://api.chatilo.de,http://localhost:1234,http://localhost:3000
+      MONGODB_URI: mongodb://admin:chatilo123@mongodb:27017/chatilo?authSource=admin
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      CORS_ORIGIN: http://localhost:3000
+      UPLOAD_PATH: ./uploads
+      MAX_FILE_SIZE: 10485760
     ports:
       - "1113:1113"
     volumes:
-      - chatilo_uploads:/app/uploads
+      - ./server/uploads:/app/uploads
+    depends_on:
+      - mongodb
     networks:
       - chatilo-network
-    depends_on:
-      chatilo-mongo:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:1113/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
   # Frontend Client
-  chatilo-client:
+  client:
     build:
       context: ./client
       dockerfile: Dockerfile
-      args:
-        REACT_APP_API_URL: https://api.chatilo.de
-        REACT_APP_SOCKET_URL: wss://api.chatilo.de
     container_name: chatilo-client
     restart: unless-stopped
+    environment:
+      REACT_APP_API_URL: http://localhost:1113
+      REACT_APP_SOCKET_URL: http://localhost:1113
     ports:
-      - "1234:80"
+      - "3000:80"
+    depends_on:
+      - server
     networks:
       - chatilo-network
+
+  # Nginx Reverse Proxy (Optional - for production)
+  nginx:
+    image: nginx:alpine
+    container_name: chatilo-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
     depends_on:
-      chatilo-server:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
+      - client
+      - server
+    networks:
+      - chatilo-network
 
 volumes:
-  chatilo_mongo_data:
-    driver: local
-  chatilo_mongo_config:
-    driver: local
-  chatilo_uploads:
+  mongodb_data:
     driver: local
 
 networks:
   chatilo-network:
     driver: bridge
-    name: chatilo-network

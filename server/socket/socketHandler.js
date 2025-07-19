@@ -5,6 +5,28 @@ const ChatRoom = require('../models/ChatRoom');
 
 const connectedUsers = new Map();
 
+// Function to get real participant count for a room
+const getRoomParticipantCount = (io, roomId) => {
+  const room = io.sockets.adapter.rooms.get(roomId);
+  return room ? room.size : 0;
+};
+
+// Function to get all room participant counts
+const getAllRoomParticipantCounts = (io) => {
+  const counts = {};
+  for (const [roomId, room] of io.sockets.adapter.rooms) {
+    // Skip personal socket rooms (they have the same ID as socket ID)
+    if (!roomId.includes('socket:')) {
+      counts[roomId] = room.size;
+    }
+  }
+  return counts;
+};
+
+// Export functions for use in routes
+module.exports.getRoomParticipantCount = getRoomParticipantCount;
+module.exports.getAllRoomParticipantCounts = getAllRoomParticipantCounts;
+
 const socketHandler = (io) => {
   // Authentication middleware for socket connections
   io.use(async (socket, next) => {
@@ -53,15 +75,17 @@ const socketHandler = (io) => {
       try {
         socket.join(roomId);
         
-        // Only load messages for real MongoDB rooms
+        // Load messages for the room
         let messages = [];
-        if (roomId.match(/^[0-9a-fA-F]{24}$/)) {
+        try {
           messages = await Message.find({ chatRoom: roomId })
-            .populate('sender', 'username')
+            .populate('sender', 'username avatar')
             .sort({ createdAt: -1 })
             .limit(50)
             .lean();
           messages.reverse();
+        } catch (error) {
+          console.log(`📧 Could not load messages for room ${roomId}:`, error.message);
         }
         
         const userCount = socket.adapter.rooms.get(roomId)?.size || 0;

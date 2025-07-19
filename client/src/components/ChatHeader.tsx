@@ -94,6 +94,7 @@ interface ChatHeaderProps {
     username: string;
     email: string;
     avatar?: string | null; // CHANGE: Allow null
+    profileImage?: string | null; // Alias für avatar
   } | null;
   onLogout: () => void;
 }
@@ -197,10 +198,10 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
               }}
             >
               <UserAvatar 
-                src={user.avatar || undefined} // CONVERT null to undefined
+                src={user.avatar || user.profileImage || undefined} // CONVERT null to undefined
                 sx={{ width: 36, height: 36, mr: 1 }}
               >
-                {user.avatar ? null : user.username?.charAt(0).toUpperCase()}
+                {user.avatar || user.profileImage ? null : user.username?.charAt(0).toUpperCase()}
               </UserAvatar>
               
               <Typography 

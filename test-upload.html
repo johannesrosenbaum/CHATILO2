@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatilo Media Upload Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            background: #f8f9fa;
+        }
+        
+        .test-title {
+            font-weight: bold;
+            color: #007AFF;
+            margin-bottom: 10px;
+        }
+        
+        input[type="file"] {
+            margin: 10px 0;
+            padding: 10px;
+            border: 2px dashed #007AFF;
+            border-radius: 8px;
+            background: white;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .preview {
+            margin: 10px 0;
+            text-align: center;
+        }
+        
+        .preview img, .preview video {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Chatilo Feature Test</h1>
+        
+        <!-- Server Status Test -->
+        <div class="test-section">
+            <div class="test-title">📡 Server Status</div>
+            <button onclick="testServerStatus()">Test Server Connection</button>
+            <div id="server-result"></div>
+        </div>
+        
+        <!-- Image Upload Test -->
+        <div class="test-section">
+            <div class="test-title">📷 Image Upload Test</div>
+            <input type="file" id="image-file" accept="image/*">
+            <button onclick="testImageUpload()">Upload Image</button>
+            <div id="image-result"></div>
+            <div id="image-preview" class="preview"></div>
+        </div>
+        
+        <!-- Video Upload Test -->
+        <div class="test-section">
+            <div class="test-title">🎥 Video Upload Test</div>
+            <input type="file" id="video-file" accept="video/*">
+            <button onclick="testVideoUpload()">Upload Video</button>
+            <div id="video-result"></div>
+            <div id="video-preview" class="preview"></div>
+        </div>
+        
+        <!-- Avatar Upload Test -->
+        <div class="test-section">
+            <div class="test-title">👤 Avatar Upload Test</div>
+            <input type="file" id="avatar-file" accept="image/*">
+            <button onclick="testAvatarUpload()">Upload Avatar</button>
+            <div id="avatar-result"></div>
+            <div id="avatar-preview" class="preview"></div>
+        </div>
+        
+        <!-- Authentication Test -->
+        <div class="test-section">
+            <div class="test-title">🔐 Authentication Test</div>
+            <input type="email" id="test-email" placeholder="Email" value="test@chatilo.com">
+            <input type="password" id="test-password" placeholder="Password" value="test123">
+            <button onclick="testLogin()">Test Login</button>
+            <div id="auth-result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:1113';
+        let authToken = localStorage.getItem('token');
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+
+        async function testServerStatus() {
+            try {
+                showResult('server-result', '⏳ Testing server connection...', 'info');
+                
+                const response = await fetch(`${API_URL}/api/health`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('server-result', `✅ Server is running! Status: ${data.status}`, 'success');
+                } else {
+                    showResult('server-result', `❌ Server error: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                showResult('server-result', `❌ Connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLogin() {
+            try {
+                const email = document.getElementById('test-email').value;
+                const password = document.getElementById('test-password').value;
+                
+                showResult('auth-result', '⏳ Testing login...', 'info');
+                
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.token;
+                    localStorage.setItem('token', authToken);
+                    showResult('auth-result', `✅ Login successful! User: ${data.user.username}`, 'success');
+                } else {
+                    showResult('auth-result', `❌ Login failed: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showResult('auth-result', `❌ Login error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testImageUpload() {
+            const fileInput = document.getElementById('image-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showResult('image-result', '❌ Please select an image file', 'error');
+                return;
+            }
+            
+            if (!authToken) {
+                showResult('image-result', '❌ Please login first', 'error');
+                return;
+            }
+            
+            try {
+                showResult('image-result', '⏳ Uploading image...', 'info');
+                
+                const formData = new FormData();
+                formData.append('media', file);
+                formData.append('roomId', 'test-room');
+                
+                const response = await fetch(`${API_URL}/api/chat/upload/media`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('image-result', `✅ Image uploaded! URL: ${data.mediaUrl}`, 'success');
+                    document.getElementById('image-preview').innerHTML = 
+                        `<img src="${API_URL}${data.mediaUrl}" alt="Uploaded image">`;
+                } else {
+                    showResult('image-result', `❌ Upload failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showResult('image-result', `❌ Upload error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testVideoUpload() {
+            const fileInput = document.getElementById('video-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showResult('video-result', '❌ Please select a video file', 'error');
+                return;
+            }
+            
+            if (!authToken) {
+                showResult('video-result', '❌ Please login first', 'error');
+                return;
+            }
+            
+            try {
+                showResult('video-result', '⏳ Uploading video...', 'info');
+                
+                const formData = new FormData();
+                formData.append('media', file);
+                formData.append('roomId', 'test-room');
+                
+                const response = await fetch(`${API_URL}/api/chat/upload/media`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('video-result', `✅ Video uploaded! URL: ${data.mediaUrl}`, 'success');
+                    document.getElementById('video-preview').innerHTML = 
+                        `<video controls src="${API_URL}${data.mediaUrl}"></video>`;
+                } else {
+                    showResult('video-result', `❌ Upload failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showResult('video-result', `❌ Upload error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAvatarUpload() {
+            const fileInput = document.getElementById('avatar-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showResult('avatar-result', '❌ Please select an avatar image', 'error');
+                return;
+            }
+            
+            if (!authToken) {
+                showResult('avatar-result', '❌ Please login first', 'error');
+                return;
+            }
+            
+            try {
+                showResult('avatar-result', '⏳ Uploading avatar...', 'info');
+                
+                const formData = new FormData();
+                formData.append('avatar', file);
+                
+                const response = await fetch(`${API_URL}/api/auth/avatar`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('avatar-result', `✅ Avatar uploaded! URL: ${data.avatar}`, 'success');
+                    document.getElementById('avatar-preview').innerHTML = 
+                        `<img src="${API_URL}${data.avatar}" alt="Avatar" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover;">`;
+                } else {
+                    showResult('avatar-result', `❌ Upload failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showResult('avatar-result', `❌ Upload error: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-test server status on load
+        window.onload = () => {
+            testServerStatus();
+        };
+    </script>
+</body>
+</html>

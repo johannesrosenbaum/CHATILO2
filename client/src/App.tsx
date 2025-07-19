@@ -1,113 +1,269 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import ChatPage from './pages/ChatPage';
-import ProfilePage from './pages/ProfilePage';
-import SettingsPage from './pages/SettingsPage';
-import { AuthProvider } from './contexts/AuthContext';
+import { CssBaseline, Box } from '@mui/material';
+import { Toaster } from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
+
+import theme from './theme/theme';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ChatProvider } from './contexts/ChatContext';
+import { LocationProvider } from './contexts/LocationContext';
 import { SocketProvider } from './contexts/SocketContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import { createTheme } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
 
-const theme = createTheme({
-  palette: {
-    primary: { main: '#1976d2' },
-    secondary: { main: '#dc004e' },
-  },
-});
+// Components
+import Layout from './components/Layout/Layout';
+import LoginScreen from './components/Auth/LoginScreen';
+import RegisterScreen from './components/Auth/RegisterScreen';
+import HomeScreen from './components/Home/HomeScreen';
+import ChatScreen from './components/Chat/ChatScreen';
+import ChatRoomList from './components/ChatRoomList';
+import ProfileScreen from './components/Profile/ProfileScreen';
+import CreateEventScreen from './components/Events/CreateEventScreen';
+import EventDetailsScreen from './components/Events/EventDetailsScreen';
 
-// FINAL FORCE REBUILD - ABSOLUTLY CRITICAL
-const FINAL_VERSION = "ABSOLUTE_FINAL_V6_" + Date.now();
-const EMERGENCY_TIMESTAMP = new Date().toISOString();
+import LoadingScreen from './components/Common/LoadingScreen';
+import ErrorBoundary from './components/Common/ErrorBoundary';
 
-function App() {
-  console.log('🔧 DEBUG: App component initializing...');
-  
+// Universeller ChatPageWrapper für alle Chat-Routen
+const ChatPageWrapper: React.FC = () => {
+  // UNÜBERSEHBARES LOG UND ALERT
+  console.log('🚨🚨🚨 [ChatPageWrapper] WIRD GERENDET!');
+  const location = useLocation();
+  const params = useParams<{ roomId?: string }>();
+
+  // roomId aus /chat/:roomId oder /chat/room/:roomId extrahieren
+  let roomId = params.roomId || null;
+  if (!roomId) {
+    // Fallback: Manuell aus dem Pfad extrahieren
+    const pathParts = location.pathname.split('/').filter(Boolean);
+    if (pathParts[0] === 'chat' && pathParts[1] === 'room' && pathParts[2]) {
+      roomId = pathParts[2];
+    } else if (pathParts[0] === 'chat' && pathParts[1]) {
+      roomId = pathParts[1];
+    }
+  }
+  // FETTES DEBUG-LOG
+  console.log('🔥🔥🔥 [ChatPageWrapper] GERENDET! Params:', params, 'location:', location.pathname, 'final roomId:', roomId);
+  return (
+    <SocketProvider roomId={roomId}>
+      <ChatScreen />
+    </SocketProvider>
+  );
+};
+
+// Protected Route Component
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// Main App Component
+const AppContent: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  const [isInitialized, setIsInitialized] = useState(false);
+
   useEffect(() => {
-    console.log('🔧 DEBUG: App useEffect - Component mounted');
-    console.log('   Window dimensions:', { width: window.innerWidth, height: window.innerHeight });
-    console.log('   User Agent:', navigator.userAgent);
-    console.log('   Local Storage keys:', Object.keys(localStorage));
-    console.log('   Session Storage keys:', Object.keys(sessionStorage));
-    
-    return () => {
-      console.log('🔧 DEBUG: App useEffect - Component will unmount');
-    };
+    // Simulate initialization
+    const timer = setTimeout(() => {
+      setIsInitialized(true);
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, []);
 
-  console.log('🔧 DEBUG: App component rendering...');
-
-  // FINAL EMERGENCY LOGS
-  console.log('🆘🆘🆘🆘🆘 FINAL EMERGENCY REBUILD!!! 🆘🆘🆘🆘🆘');
-  console.log(`🔥 FINAL VERSION: ${FINAL_VERSION}`);
-  console.log(`⏰ TIMESTAMP: ${EMERGENCY_TIMESTAMP}`);
-  console.log('🚪 ROOM ROUTE /chat/:roomId ABSOLUTELY MUST WORK NOW!');
-  console.log('✅ ALL ROUTES: /login, /register, /chat, /chat/:roomId, /profile, /settings');
-  
-  // THROW ERROR IF OLD VERSION
-  if (!FINAL_VERSION || FINAL_VERSION.length < 20) {
-    console.error('💥💥💥 OLD APP VERSION DETECTED - CRITICAL ERROR');
-    throw new Error('CRITICAL: OLD APP VERSION STILL LOADING!');
+  if (!isInitialized || isLoading) {
+    return <LoadingScreen />;
   }
-  
+
   return (
-    <AuthProvider>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <Router>
+      <Box
+        component={motion.div}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        sx={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%)',
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: `
+              radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(236, 72, 153, 0.1) 0%, transparent 50%),
+              radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)
+            `,
+            pointerEvents: 'none',
+          },
+        }}
+      >
+        <AnimatePresence mode="wait">
           <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            
-            {/* BASE CHAT ROUTE */}
+            {/* Public Routes */}
             <Route
-              path="/chat"
+              path="/login"
+              element={
+                !isAuthenticated ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <LoginScreen />
+                  </motion.div>
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                !isAuthenticated ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <RegisterScreen />
+                  </motion.div>
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+
+            {/* Protected Routes */}
+            <Route
+              path="/"
               element={
                 <ProtectedRoute>
-                  <SocketProvider>
-                    <ChatPage />
-                  </SocketProvider>
+                  <Layout>
+                    <HomeScreen />
+                  </Layout>
                 </ProtectedRoute>
               }
             />
-            
-            {/* 🆘 ABSOLUTELY CRITICAL ROOM ROUTE 🆘 */}
+            {/* Explizite Route für /chat/room/:roomId */}
             <Route
-              path="/chat/:roomId"
+              path="/chat/room/:roomId"
               element={
                 <ProtectedRoute>
-                  <SocketProvider>
-                    <ChatPage />
-                  </SocketProvider>
+                  <ChatPageWrapper />
                 </ProtectedRoute>
               }
             />
-            
+            {/* Route für /chat/:roomId (optional) */}
+            <Route
+              path="/chat/:roomId?"
+              element={
+                <ProtectedRoute>
+                  <ChatPageWrapper />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/profile"
               element={
                 <ProtectedRoute>
-                  <ProfilePage />
+                  <Layout>
+                    <ProfileScreen />
+                  </Layout>
                 </ProtectedRoute>
               }
             />
             <Route
-              path="/settings"
+              path="/create-event"
               element={
                 <ProtectedRoute>
-                  <SettingsPage />
+                  <Layout>
+                    <CreateEventScreen />
+                  </Layout>
                 </ProtectedRoute>
               }
             />
-            <Route path="/" element={<Navigate to="/chat" replace />} />
+            <Route
+              path="/event/:eventId"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <EventDetailsScreen />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+
+
+            {/* Fallback Route */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </Router>
-      </ThemeProvider>
-    </AuthProvider>
+        </AnimatePresence>
+
+        {/* Toast Notifications */}
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: 'rgba(30, 30, 30, 0.95)',
+              color: '#ffffff',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(10px)',
+            },
+            success: {
+              iconTheme: {
+                primary: '#10b981',
+                secondary: '#ffffff',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: '#ef4444',
+                secondary: '#ffffff',
+              },
+            },
+          }}
+        />
+      </Box>
+    </Router>
   );
-}
+};
+
+// Root App Component
+const App: React.FC = () => {
+  return (
+    <ErrorBoundary>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <AuthProvider>
+          <SocketProvider>
+            <LocationProvider>
+              <ChatProvider>
+                <AppContent />
+              </ChatProvider>
+            </LocationProvider>
+          </SocketProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
+  );
+};
 
 export default App;

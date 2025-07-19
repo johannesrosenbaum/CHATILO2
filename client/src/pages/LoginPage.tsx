@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -43,7 +43,7 @@ const ChatiloIcon = styled('div')(({ theme }) => ({
 const ChatiloSymbol = styled('div')(({ theme }) => ({
   fontSize: '48px',
   fontWeight: 900,
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
+  background: 'linear-gradient(135deg, #2e0854 0%, #1a0533 25%, #4a148c 50%, #6a1b9a 75%, #2e0854 100%)',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
   backgroundClip: 'text',
@@ -55,7 +55,7 @@ const ChatiloSymbol = styled('div')(({ theme }) => ({
 // GLEICHER GEILER GRADIENT wie ChatHeader! ✨
 const GradientBackground = styled(Box)(({ theme }) => ({
   minHeight: '100vh',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
+  background: 'linear-gradient(135deg, #2e0854 0%, #1a0533 25%, #4a148c 50%, #6a1b9a 75%, #2e0854 100%)',
   backgroundSize: '400% 400%',
   animation: 'gradientShift 8s ease infinite',
   display: 'flex',
@@ -113,7 +113,7 @@ const GlassCard = styled(Paper)(({ theme }) => ({
 }));
 
 const GradientButton = styled(Button)(({ theme }) => ({
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
+  background: 'linear-gradient(135deg, #2e0854 0%, #1a0533 25%, #4a148c 50%, #6a1b9a 75%, #2e0854 100%)',
   backgroundSize: '200% 200%',
   border: 'none',
   borderRadius: 12,
@@ -122,7 +122,7 @@ const GradientButton = styled(Button)(({ theme }) => ({
   fontSize: '1.1rem',
   padding: '12px 24px',
   textTransform: 'none',
-  boxShadow: '0 8px 20px rgba(102, 126, 234, 0.4)',
+  boxShadow: '0 8px 20px rgba(46, 8, 84, 0.4)',
   transition: 'all 0.3s ease',
   '&:hover': {
     backgroundPosition: '100% 0',
@@ -137,7 +137,7 @@ const GradientButton = styled(Button)(({ theme }) => ({
 const StyledTabs = styled(Tabs)(({ theme }) => ({
   marginBottom: theme.spacing(3),
   '& .MuiTabs-indicator': {
-    background: 'linear-gradient(135deg, #667eea 0%, #f093fb 100%)',
+    background: 'linear-gradient(135deg, #2e0854 0%, #4a148c 100%)',
     height: 3,
     borderRadius: 2,
   },
@@ -147,7 +147,7 @@ const StyledTabs = styled(Tabs)(({ theme }) => ({
     fontSize: '1rem',
     color: theme.palette.text.secondary,
     '&.Mui-selected': {
-      background: 'linear-gradient(135deg, #667eea 0%, #f093fb 100%)',
+      background: 'linear-gradient(135deg, #2e0854 0%, #4a148c 100%)',
       WebkitBackgroundClip: 'text',
       WebkitTextFillColor: 'transparent',
       backgroundClip: 'text',
@@ -182,14 +182,20 @@ interface TabPanelProps {
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
+
   return (
     <div
       role="tabpanel"
       hidden={value !== index}
-      id={`tabpanel-${index}`}
+      id={`simple-tabpanel-${index}`}
+      aria-labelledby={`simple-tab-${index}`}
       {...other}
     >
-      {value === index && <Box>{children}</Box>}
+      {value === index && (
+        <Box sx={{ pt: 3 }}>
+          {children}
+        </Box>
+      )}
     </div>
   );
 }
@@ -230,8 +236,10 @@ const LoginPage: React.FC = () => {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
 
-  const { login, register } = useAuth();
+  const { login, register, user } = useAuth();
   const navigate = useNavigate();
+
+
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -245,14 +253,15 @@ const LoginPage: React.FC = () => {
     setError(null);
 
     try {
-      const success = await login(loginEmail, loginPassword);
-      if (success) {
-        setSuccess('Login erfolgreich! Weiterleitung...');
-        setTimeout(() => {
-          navigate('/chat');
-        }, 1000);
-      }
+      console.log('🔧 Attempting login with:', loginEmail);
+      await login(loginEmail, loginPassword);
+      console.log('✅ Login successful, setting success message');
+      setSuccess('Login erfolgreich! Weiterleitung...');
+      // Direkte Weiterleitung ohne Animation
+      console.log('🔧 Navigating to /chat');
+      navigate('/chat');
     } catch (error: any) {
+      console.error('❌ Login failed:', error);
       setError(error.message || 'Login fehlgeschlagen');
     } finally {
       setLoading(false);
@@ -265,13 +274,10 @@ const LoginPage: React.FC = () => {
     setError(null);
 
     try {
-      const result = await register(registerUsername, registerEmail, registerPassword);
-      if (result) {
-        setSuccess('Registrierung erfolgreich! Weiterleitung...');
-        setTimeout(() => {
-          navigate('/chat');
-        }, 1000);
-      }
+      await register(registerUsername, registerEmail, registerPassword);
+      setSuccess('Registrierung erfolgreich! Weiterleitung...');
+      // Direkte Weiterleitung ohne Animation
+      navigate('/chat');
     } catch (error: any) {
       setError(error.message || 'Registrierung fehlgeschlagen');
     } finally {
@@ -279,18 +285,58 @@ const LoginPage: React.FC = () => {
     }
   };
 
+  // Vereinfachte Weiterleitung nach Login
+  useEffect(() => {
+    console.log('🔧 LoginPage useEffect triggered:', { user: !!user, userData: user });
+    if (user) {
+      console.log('✅ User logged in, redirecting to chat');
+      navigate('/chat');
+    }
+  }, [user, navigate]);
+
   return (
     <GradientBackground>
       <Container maxWidth="sm">
         <GlassCard elevation={0}>
-          {/* CHATILO LOGO & TITLE - ERSETZT DURCH NEUES LOGO */}
-          <LogoContainer>
-            <LogoIcon>
+          {/* CHATILO LOGO & TITLE */}
+          <Box sx={{ textAlign: 'center', mb: 3 }}>
+            <Box sx={{ 
+              width: 80, 
+              height: 80, 
+              mx: 'auto', 
+              mb: 2,
+              borderRadius: '20px',
+              background: 'linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 32px rgba(255, 255, 255, 0.4)',
+              border: '3px solid rgba(102, 126, 234, 0.2)',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'linear-gradient(45deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.4) 100%)',
+                borderRadius: '17px',
+              }
+            }}>
               <img 
                 src="/Chatilo_pin.png" 
                 alt="CHATILO Logo" 
+                style={{
+                  width: '60px',
+                  height: '60px',
+                  objectFit: 'contain',
+                  position: 'relative',
+                  zIndex: 1
+                }}
               />
-            </LogoIcon>
+            </Box>
             
             <Typography 
               variant="h6" 
@@ -303,7 +349,7 @@ const LoginPage: React.FC = () => {
             >
               Verbinde dich mit deiner Community
             </Typography>
-          </LogoContainer>
+          </Box>
 
           {/* ERROR/SUCCESS ALERTS */}
           {error && (

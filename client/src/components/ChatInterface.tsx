@@ -9,8 +9,9 @@ import {
   Avatar,
   Chip
 } from '@mui/material';
-import { Send as SendIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import { Send as SendIcon, ArrowBack as ArrowBackIcon, PhotoCamera, Videocam, AttachFile } from '@mui/icons-material';
 import { useSocket } from '../contexts/SocketContext';
+import '../styles/mobile-chat.css';
 
 const ChatInterface: React.FC = () => {
   const navigate = useNavigate();
@@ -50,9 +51,9 @@ const ChatInterface: React.FC = () => {
     }
   }, [currentRoom]);
 
-  // Join room on mount
+  // Join room when roomId changes
   useEffect(() => {
-    if (roomId && socket) {
+    if (roomId && socket && joinRoom) {
       console.log('🚪 ChatInterface: Joining room', roomId);
       joinRoom(roomId);
     }
@@ -99,12 +100,11 @@ const ChatInterface: React.FC = () => {
   }, [user]);
 
   const handleSendMessage = () => {
-    if (newMessage.trim() && currentRoom) {
-      console.log('📤 ChatInterface: Sending message:', newMessage);
-      sendMessage(newMessage.trim());
-      setNewMessage('');
-      setIsTyping(false);
-    }
+    if (!newMessage.trim() || !currentRoom) return;
+    console.log('📤 ChatInterface: Sending message:', newMessage);
+    sendMessage(newMessage.trim());
+    setNewMessage('');
+    setIsTyping(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -168,18 +168,29 @@ const ChatInterface: React.FC = () => {
   const participantCount = currentRoomInfo?.participants || 1;
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#f0f2f5' }}>
+    <Box sx={{ 
+      height: { xs: '100vh', md: '100vh' }, 
+      width: { xs: '100vw', md: 'auto' },
+      display: 'flex', 
+      flexDirection: 'column', 
+      bgcolor: '#f0f2f5',
+      position: 'relative',
+      overflow: 'hidden',
+      margin: 0,
+      padding: 0
+    }} className="chat-interface-container">
       {/* 🎨 MODERN HEADER */}
       <Paper 
         elevation={3} 
         sx={{ 
-          p: 2, 
+          p: { xs: 1.5, sm: 2 }, 
           borderRadius: 0,
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          color: 'white'
+          color: 'white',
+          zIndex: 100
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
           <IconButton onClick={handleBack} edge="start" sx={{ color: 'white' }}>
             <ArrowBackIcon />
           </IconButton>
@@ -189,8 +200,9 @@ const ChatInterface: React.FC = () => {
             sx={{
               bgcolor: 'rgba(255,255,255,0.2)',
               border: '2px solid rgba(255,255,255,0.3)',
-              width: 40,
-              height: 40
+              width: { xs: 35, sm: 40 },
+              height: { xs: 35, sm: 40 },
+              fontSize: { xs: '0.9rem', sm: '1rem' }
             }}
           >
             {currentRoomInfo?.name?.charAt(0).toUpperCase() || 'R'}
@@ -221,10 +233,13 @@ const ChatInterface: React.FC = () => {
       <Box sx={{ 
         flexGrow: 1, 
         overflow: 'auto', 
-        p: 2,
+        p: { xs: 1, sm: 2 },
+        pb: { xs: '80px', sm: 2 }, // Extra bottom padding on mobile for fixed input
         background: 'linear-gradient(180deg, #f0f2f5 0%, #e3f2fd 100%)',
-        position: 'relative'
-      }}>
+        position: 'relative',
+        minHeight: 0,
+        maxHeight: { xs: 'calc(100vh - 140px)', sm: 'calc(100vh - 200px)' }
+      }} className="messages-container">
         
         {/* Background Pattern */}
         <Box sx={{
@@ -304,8 +319,52 @@ const ChatInterface: React.FC = () => {
       </Box>
 
       {/* 🎨 MODERN MESSAGE INPUT */}
-      <Paper sx={{ p: 2, borderRadius: 0 }}>
-        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
+      <Paper 
+        sx={{ 
+          p: { xs: 1.5, sm: 2 }, 
+          borderRadius: 0,
+          position: { xs: 'fixed', md: 'static' },
+          bottom: { xs: 0, md: 'auto' },
+          left: { xs: 0, md: 'auto' },
+          right: { xs: 0, md: 'auto' },
+          zIndex: { xs: 1000, md: 'auto' },
+          borderTop: { xs: '1px solid #e0e0e0', md: 'none' },
+          boxShadow: { xs: '0 -2px 8px rgba(0,0,0,0.1)', md: 'none' }
+        }} 
+        className="chat-input-container"
+      >
+        <Box sx={{ 
+          display: 'flex', 
+          gap: { xs: 1, sm: 1.5 }, 
+          alignItems: 'flex-end',
+          maxWidth: '100%',
+          overflow: 'hidden'
+        }}>
+          {/* Upload buttons */}
+          <IconButton
+            onClick={() => imageInputRef.current?.click()}
+            disabled={!isEffectivelyConnected || isUploading}
+            sx={{ 
+              color: '#667eea',
+              display: { xs: 'none', sm: 'inline-flex' } // Hide on very small screens
+            }}
+            title="Bild hochladen"
+          >
+            <PhotoCamera />
+          </IconButton>
+          
+          <IconButton
+            onClick={() => videoInputRef.current?.click()}
+            disabled={!isEffectivelyConnected || isUploading}
+            sx={{ 
+              color: '#667eea',
+              display: { xs: 'none', sm: 'inline-flex' } // Hide on very small screens
+            }}
+            title="Video hochladen"
+          >
+            <Videocam />
+          </IconButton>
+          
           <TextField
             fullWidth
             multiline
@@ -320,9 +379,14 @@ const ChatInterface: React.FC = () => {
             variant="outlined"
             disabled={!isEffectivelyConnected}
             ref={inputRef}
+            className="chat-input"
             sx={{
               '& .MuiOutlinedInput-root': {
-                borderRadius: '25px'
+                borderRadius: '25px',
+                fontSize: { xs: '16px', sm: '14px' } // Prevents zoom on iOS
+              },
+              '& .MuiInputBase-input': {
+                padding: { xs: '12px 16px', sm: '14px 16px' }
               }
             }}
           />
@@ -335,11 +399,13 @@ const ChatInterface: React.FC = () => {
                 ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
                 : '#e0e0e0',
               color: 'white',
-              width: 50,
-              height: 50
+              width: { xs: 45, sm: 50 },
+              height: { xs: 45, sm: 50 },
+              minWidth: { xs: 45, sm: 50 },
+              flexShrink: 0
             }}
           >
-            <SendIcon />
+            <SendIcon sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }} />
           </IconButton>
         </Box>
       </Paper>

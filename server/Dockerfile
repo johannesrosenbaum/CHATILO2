@@ -1,42 +1,37 @@
-# Server Dockerfile - OPTIMIERT
-FROM node:18-alpine as builder
+# Node.js Server Dockerfile
+FROM node:18-alpine
 
+# Set working directory
 WORKDIR /app
+
+# Install dependencies for native modules
+RUN apk add --no-cache python3 make g++
 
 # Copy package files
 COPY package*.json ./
 
-# Install production dependencies
+# Install dependencies
 RUN npm ci --only=production
 
-# Production stage
-FROM node:18-alpine as production
-
-WORKDIR /app
-
-# Create user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S chatilo -u 1001
-
-# Copy dependencies
-COPY --from=builder /app/node_modules ./node_modules
-
 # Copy source code
-COPY --chown=chatilo:nodejs . .
+COPY . .
 
-# Create uploads directory
-RUN mkdir -p uploads/images && \
-    chown -R chatilo:nodejs uploads
+# Create upload directories
+RUN mkdir -p uploads/avatars uploads/images uploads/videos uploads/files
 
-# Switch to non-root user
-USER chatilo
+# Create logs directory
+RUN mkdir -p logs
+
+# Set permissions
+RUN chown -R node:node /app
+USER node
 
 # Expose port
 EXPOSE 1113
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:1113/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))"
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node healthcheck.js || exit 1
 
-# Start server
+# Start the application
 CMD ["node", "server.js"]

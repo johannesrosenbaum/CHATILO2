@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { getPreciseLocation } = require('../utils/geocoding');
+const User = require('../models/User');
+const auth = require('../middleware/auth');
 
 // GET /api/location/name - MIT ERWEITERTEN DEBUGGING
 router.get('/name', async (req, res) => {
@@ -81,6 +83,37 @@ router.get('/name', async (req, res) => {
         stack: error.stack
       }
     });
+  }
+});
+
+// PUT /api/location - Speichert den Standort des Nutzers
+router.put('/', auth, async (req, res) => {
+  try {
+    console.log('🌍 [DEBUG] PUT /api/location aufgerufen');
+    console.log('   Body:', req.body);
+    console.log('   Authentifizierter User:', req.user?._id, req.user?.username);
+    const { latitude, longitude, address } = req.body;
+    if (!latitude || !longitude) {
+      console.log('❌ [DEBUG] Fehlende Koordinaten:', latitude, longitude);
+      return res.status(400).json({ message: 'Latitude and longitude required' });
+    }
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      console.log('❌ [DEBUG] User nicht gefunden:', req.user?._id);
+      return res.status(404).json({ message: 'User not found' });
+    }
+    user.lastLocation = {
+      type: 'Point',
+      coordinates: [longitude, latitude],
+      address: address || null,
+      updatedAt: new Date()
+    };
+    await user.save();
+    console.log('✅ [DEBUG] Standort erfolgreich gespeichert für User:', user.username);
+    res.json({ success: true, message: 'Location updated' });
+  } catch (error) {
+    console.error('❌ [DEBUG] Fehler beim Speichern des Standorts:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

@@ -1,246 +1,246 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import axios from 'axios';
+import toast from 'react-hot-toast';
+import { User, AuthState, UpdateProfileData } from '../types';
 
-export interface User {
-  id: string;
-  _id?: string;
-  username: string;
-  email: string;
-  bio?: string;
-  avatar?: string;
-  createdAt?: string;
-  locationEnabled?: boolean;
-  notificationsEnabled?: boolean;
-  isActive?: boolean;
-  lastSeen?: string;
-  updatedAt?: string;
-}
+// Konfiguriere axios baseURL für Backend
+axios.defaults.baseURL = 'http://localhost:1113';
 
-interface AuthContextType {
-  user: User | null;
-  token: string | null;
-  loading: boolean;
-  error: string | null;
-  login: (email: string, password: string) => Promise<User | null>;
-  register: (username: string, email: string, password: string) => Promise<User | null>;
+interface AuthContextType extends AuthState {
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, username: string) => Promise<void>;
   logout: () => void;
-  updateProfile: (data: Partial<User>) => Promise<boolean>;
+  updateProfile: (data: UpdateProfileData) => Promise<void>;
+  refreshUser: () => Promise<void>;
+  loading: boolean; // Alias für isLoading
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const getApiUrl = () => {
-  if (window.location.hostname === 'chatilo.de' || window.location.hostname.includes('82.165.140.194')) {
-    return 'https://api.chatilo.de';
-  }
-  return 'http://localhost:1113';
+type AuthAction =
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_USER'; payload: User | null }
+  | { type: 'SET_TOKEN'; payload: string | null }
+  | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'LOGOUT' };
+
+const initialState: AuthState = {
+  user: null,
+  token: localStorage.getItem('token'),
+  isAuthenticated: false,
+  isLoading: true,
+  error: null,
 };
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
+const authReducer = (state: AuthState, action: AuthAction): AuthState => {
+  switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.payload };
+    case 'SET_USER':
+      return {
+        ...state,
+        user: action.payload,
+        isAuthenticated: !!action.payload,
+        isLoading: false,
+        error: null,
+      };
+    case 'SET_TOKEN':
+      return { ...state, token: action.payload };
+    case 'SET_ERROR':
+      return { ...state, error: action.payload, isLoading: false };
+    case 'LOGOUT':
+      return {
+        ...state,
+        user: null,
+        token: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+      };
+    default:
+      return state;
+  }
+};
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [state, dispatch] = useReducer(authReducer, initialState);
 
+  // Set up axios defaults
   useEffect(() => {
-    const checkStoredToken = async () => {
-      const storedToken = localStorage.getItem('token');
-      if (storedToken) {
-        setToken(storedToken);
-        try {
-          console.log('👤 Fetching user data...');
-          const API_URL = getApiUrl();
-          const response = await fetch(`${API_URL}/api/auth/me`, {
-            headers: {
-              'Authorization': `Bearer ${storedToken}`
-            }
-          });
+    if (state.token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${state.token}`;
+    } else {
+      delete axios.defaults.headers.common['Authorization'];
+    }
+  }, [state.token]);
 
-          if (response.ok) {
-            const userData = await response.json();
-            setUser(userData.user);
-            console.log('✅ User authenticated:', userData.user);
-          } else {
-            console.log('❌ Token invalid, removing...');
-            localStorage.removeItem('token');
-            setToken(null);
-          }
+  // Check if user is authenticated on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (state.token) {
+        try {
+          const response = await axios.get('/api/auth/me');
+          console.log('🔧 Auth check response:', response.data);
+          
+          // Handle both response structures
+          const userData = response.data.user || response.data;
+          dispatch({ type: 'SET_USER', payload: userData });
         } catch (error) {
-          console.error('❌ Auth check failed:', error);
+          console.error('Auth check failed:', error);
           localStorage.removeItem('token');
-          setToken(null);
+          dispatch({ type: 'LOGOUT' });
         }
+      } else {
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
-      setLoading(false);
     };
 
-    checkStoredToken();
+    checkAuth();
   }, []);
-
-  const register = async (username: string, email: string, password: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const API_URL = getApiUrl();
-      console.log('🔗 Register API URL:', API_URL);
-
-      const response = await fetch(`${API_URL}/api/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, email, password }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Registration failed');
-      }
-
-      const data = await response.json();
-
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-        const userWithDefaults: User = {
-          id: data.user._id || data.user.id,
-          _id: data.user._id,
-          username: data.user.username,
-          email: data.user.email,
-          bio: data.user.bio,
-          avatar: data.user.avatar,
-          locationEnabled: data.user.locationEnabled || true,
-          notificationsEnabled: data.user.notificationsEnabled !== false,
-          isActive: data.user.isActive || true,
-          lastSeen: data.user.lastSeen || new Date().toISOString(),
-          createdAt: data.user.createdAt || new Date().toISOString(),
-          updatedAt: data.user.updatedAt || new Date().toISOString()
-        };
-        setUser(userWithDefaults);
-        setToken(data.token);
-        return userWithDefaults;
-      }
-
-      throw new Error('No token received');
-    } catch (error: any) {
-      console.error('❌ Registration error:', error);
-      setError(error.message || 'Registration failed. Please try again.');
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const login = async (email: string, password: string) => {
     try {
-      setLoading(true);
-      setError(null);
+      console.log('🔧 AuthContext: Starting login for:', email);
+      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'SET_ERROR', payload: null });
 
-      const API_URL = getApiUrl();
-      console.log('🔗 Login API URL:', API_URL);
+      const response = await axios.post('/api/auth/login', { email, password });
+      console.log('🔧 AuthContext: Login response received:', response.data);
+      
+      // Korrigierte Struktur - direkt aus response.data
+      const { token, user } = response.data;
 
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      localStorage.setItem('token', token);
+      dispatch({ type: 'SET_TOKEN', payload: token });
+      dispatch({ type: 'SET_USER', payload: user });
+      
+      console.log('✅ AuthContext: User set successfully:', user);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Login failed');
-      }
-
-      const data = await response.json();
-
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-        const userWithDefaults: User = {
-          id: data.user._id || data.user.id,
-          _id: data.user._id,
-          username: data.user.username,
-          email: data.user.email,
-          bio: data.user.bio,
-          avatar: data.user.avatar,
-          locationEnabled: data.user.locationEnabled || false,
-          notificationsEnabled: data.user.notificationsEnabled !== false,
-          isActive: data.user.isActive || true,
-          lastSeen: data.user.lastSeen || new Date().toISOString(),
-          createdAt: data.user.createdAt || new Date().toISOString(),
-          updatedAt: data.user.updatedAt || new Date().toISOString()
-        };
-        setUser(userWithDefaults);
-        setToken(data.token);
-        return userWithDefaults;
-      }
-
-      throw new Error('No token received');
+      toast.success('Willkommen zurück!');
     } catch (error: any) {
-      console.error('❌ Login error:', error);
-      setError(error.message || 'Login failed. Please try again.');
+      console.error('❌ AuthContext: Login failed:', error);
+      const message = error.response?.data?.message || 'Login fehlgeschlagen';
+      dispatch({ type: 'SET_ERROR', payload: message });
+      toast.error(message);
       throw error;
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const register = async (email: string, password: string, username: string) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'SET_ERROR', payload: null });
+
+      const response = await axios.post('/api/auth/register', {
+        email,
+        password,
+        username,
+      });
+      // Korrigierte Struktur - direkt aus response.data
+      const { token, user } = response.data;
+
+      localStorage.setItem('token', token);
+      dispatch({ type: 'SET_TOKEN', payload: token });
+      dispatch({ type: 'SET_USER', payload: user });
+
+      toast.success('Account erfolgreich erstellt!');
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Registrierung fehlgeschlagen';
+      dispatch({ type: 'SET_ERROR', payload: message });
+      toast.error(message);
+      throw error;
     }
   };
 
   const logout = () => {
     localStorage.removeItem('token');
-    setUser(null);
-    setToken(null);
-    setError(null);
-    console.log('👋 User logged out');
+    dispatch({ type: 'LOGOUT' });
+    toast.success('Erfolgreich abgemeldet');
   };
 
-  const updateProfile = async (data: Partial<User>): Promise<boolean> => {
+  const updateProfile = async (data: UpdateProfileData) => {
     try {
-      if (!token) {
-        throw new Error('Not authenticated');
+      dispatch({ type: 'SET_LOADING', payload: true });
+
+      // Separate handling for avatar upload and profile data
+      let updatedUser = null;
+      if (data.profileImage && data.profileImage instanceof File) {
+        // Upload avatar first
+        const avatarFormData = new FormData();
+        avatarFormData.append('avatar', data.profileImage);
+        
+        const avatarResponse = await axios.post('/api/auth/avatar', avatarFormData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        
+        console.log('✅ Avatar uploaded successfully:', avatarResponse.data);
+        
+        // Update user with new avatar data
+        if (avatarResponse.data.success && avatarResponse.data.user) {
+          updatedUser = avatarResponse.data.user;
+          dispatch({ type: 'SET_USER', payload: updatedUser });
+        }
       }
 
-      const API_URL = getApiUrl();
-      const response = await fetch(`${API_URL}/api/auth/profile`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(data)
-      });
+      // Update profile data (excluding profileImage)
+      const { profileImage, ...profileData } = data;
+      const updateData: any = {};
+      
+      if (profileData.username) updateData.username = profileData.username;
+      if (profileData.firstName) updateData.firstName = profileData.firstName;
+      if (profileData.lastName) updateData.lastName = profileData.lastName;
+      if (profileData.bio) updateData.bio = profileData.bio;
+      if (profileData.preferences) updateData.preferences = profileData.preferences;
 
-      if (response.ok) {
-        const updatedUser = await response.json();
-        setUser(updatedUser.user);
-        return true;
+      if (Object.keys(updateData).length > 0) {
+        const response = await axios.put('/api/auth/me', updateData);
+        console.log('✅ Profile updated successfully:', response.data);
+        
+        // Update user with new data
+        if (response.data.success && response.data.user) {
+          // Merge with existing user data if avatar was already updated
+          const finalUser = updatedUser ? { ...response.data.user, avatar: updatedUser.avatar } : response.data.user;
+          dispatch({ type: 'SET_USER', payload: finalUser });
+        }
       }
 
-      return false;
-    } catch (error) {
+      toast.success('Profil erfolgreich aktualisiert!');
+    } catch (error: any) {
       console.error('❌ Profile update failed:', error);
-      return false;
+      const message = error.response?.data?.message || error.response?.data?.error || 'Profil-Update fehlgeschlagen';
+      toast.error(message);
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  const refreshUser = async () => {
+    try {
+      const response = await axios.get('/api/auth/me');
+      console.log('🔧 Refresh user response:', response.data);
+      
+      // Handle both response structures
+      const userData = response.data.user || response.data;
+      dispatch({ type: 'SET_USER', payload: userData });
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
     }
   };
 
   const value: AuthContextType = {
-    user,
-    token,
-    loading,
-    error,
+    ...state,
     login,
     register,
     logout,
-    updateProfile
+    updateProfile,
+    refreshUser,
+    loading: state.isLoading, // Alias für isLoading
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {

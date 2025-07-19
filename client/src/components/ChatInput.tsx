@@ -34,13 +34,29 @@ const MediaPreview = styled(Box)(() => ({
   }
 }));
 
-const ChatInput: React.FC = () => {
-  const { sendMessage, uploadMedia } = useSocket();
-  const [message, setMessage] = useState('');
+interface ChatInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  onSend: () => void;
+  onKeyPress: (event: React.KeyboardEvent) => void;
+  onFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  isSending: boolean;
+  fileInputRef: React.RefObject<HTMLInputElement>;
+  placeholder?: string;
+}
+
+const ChatInput: React.FC<ChatInputProps> = ({
+  value,
+  onChange,
+  onSend,
+  onKeyPress,
+  onFileUpload,
+  isSending,
+  fileInputRef,
+  placeholder = "Nachricht schreiben..."
+}) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -66,35 +82,15 @@ const ChatInput: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleSend = async () => {
-    if (!message.trim() && !selectedFile) return;
-
-    try {
-      if (selectedFile) {
-        setUploading(true);
-        
-        const mediaType = selectedFile.type.startsWith('image/') ? 'image' : 'video';
-        const mediaUrl = await uploadMedia(selectedFile, mediaType);
-        
-        if (mediaUrl) {
-          sendMessage(message || `Shared a ${mediaType}`, {
-            type: selectedFile.type === 'image/gif' ? 'gif' : mediaType,
-            url: mediaUrl,
-            file: selectedFile
-          });
-        }
-        
-        setSelectedFile(null);
-        setMediaPreview(null);
-      } else {
-        sendMessage(message);
-      }
-      
-      setMessage('');
-    } catch (error) {
-      console.error('❌ Send error:', error);
-    } finally {
-      setUploading(false);
+  const handleSend = () => {
+    if (!value.trim() && !selectedFile) return;
+    if (selectedFile) {
+      onFileUpload({ target: { files: [selectedFile] } } as any);
+      setSelectedFile(null);
+      setMediaPreview(null);
+    } else {
+      if (!value.trim()) return;
+      onSend();
     }
   };
 
@@ -139,7 +135,7 @@ const ChatInput: React.FC = () => {
           <IconButton
             size="small"
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
+            disabled={isSending}
           >
             <Image />
           </IconButton>
@@ -149,21 +145,21 @@ const ChatInput: React.FC = () => {
           fullWidth
           multiline
           maxRows={4}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder="Nachricht schreiben..."
-          disabled={uploading}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyPress={onKeyPress}
+          placeholder={placeholder}
+          disabled={isSending}
           variant="outlined"
           size="small"
         />
 
         <IconButton
           onClick={handleSend}
-          disabled={(!message.trim() && !selectedFile) || uploading}
+          disabled={(!value.trim() && !selectedFile) || isSending}
           color="primary"
         >
-          {uploading ? <CircularProgress size={20} /> : <Send />}
+          {isSending ? <CircularProgress size={20} /> : <Send />}
         </IconButton>
       </Box>
     </Paper>

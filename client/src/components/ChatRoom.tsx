@@ -16,6 +16,8 @@ import { Send as SendIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-materia
 import { useSocket } from '../contexts/SocketContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import { formatMessageTime } from '../utils/dateUtils';
+import FavoriteButton from './FavoriteButton';
+import { getAvatarUrl } from '../utils/avatarUtils';
 
 const ChatRoom: React.FC = () => {
   console.log('🔧 ChatRoom component rendering... NEW LAYOUT ACTIVE!!! 🎨'); // <- GEÄNDERT
@@ -68,12 +70,11 @@ const ChatRoom: React.FC = () => {
 
   // Handle message input
   const handleSendMessage = () => {
-    if (inputMessage.trim() && currentRoom) {
-      console.log('📤 ChatRoom: Sending message:', inputMessage);
-      sendMessage(inputMessage.trim());
-      setInputMessage('');
-      setIsTyping(false);
-    }
+    if (!inputMessage.trim() || !currentRoom) return;
+    console.log('📤 ChatRoom: Sending message:', inputMessage);
+    sendMessage(inputMessage.trim());
+    setInputMessage('');
+    setIsTyping(false);
   };
 
   const handleKeyPress = (event: React.KeyboardEvent) => {
@@ -245,15 +246,24 @@ const ChatRoom: React.FC = () => {
             </Typography>
           </Box>
           
-          <Chip 
-            label={activeRoom ? 'Verbunden' : 'Verbindung...'}
-            size="small"
-            sx={{
-              bgcolor: activeRoom ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255, 152, 0, 0.2)',
-              color: activeRoom ? '#4CAF50' : '#FF9800',
-              border: `1px solid ${activeRoom ? 'rgba(76, 175, 80, 0.5)' : 'rgba(255, 152, 0, 0.5)'}`
-            }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Chip 
+              label={activeRoom ? 'Verbunden' : 'Verbindung...'}
+              size="small"
+              sx={{
+                bgcolor: activeRoom ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255, 152, 0, 0.2)',
+                color: activeRoom ? '#4CAF50' : '#FF9800',
+                border: `1px solid ${activeRoom ? 'rgba(76, 175, 80, 0.5)' : 'rgba(255, 152, 0, 0.5)'}`
+              }}
+            />
+            {currentRoomInfo && (
+              <FavoriteButton 
+                roomId={currentRoomInfo._id || currentRoomInfo.id || ''} 
+                roomName={currentRoomInfo.name}
+                size="small"
+              />
+            )}
+          </Box>
         </Box>
       </Paper>
 

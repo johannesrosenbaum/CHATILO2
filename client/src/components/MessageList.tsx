@@ -15,6 +15,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
+import { getAvatarUrl } from '../utils/avatarUtils';
 
 interface Message {
   id: string;
@@ -167,7 +168,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages }) => {
           >
             <Avatar
               sx={{ width: 32, height: 32 }}
-              src={message.sender.avatar}
+              src={getAvatarUrl(message.sender.avatar)}
             >
               {message.sender.username.substring(0, 1).toUpperCase()}
             </Avatar>

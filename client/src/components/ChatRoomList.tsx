@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Box,
   List,
@@ -18,7 +19,8 @@ import {
   DialogActions,
   TextField,
   Button,
-  CircularProgress
+  CircularProgress,
+  IconButton
 } from '@mui/material';
 import {
   LocationOn,
@@ -32,7 +34,8 @@ import {
   EventAvailable
 } from '@mui/icons-material';
 import { useSocket } from '../contexts/SocketContext';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import FavoriteButton from './FavoriteButton';
 
 interface ChatRoom {
   id: string;
@@ -66,7 +69,19 @@ interface ChatRoom {
   description?: string;
 }
 
-const ChatRoomList: React.FC = () => {
+interface ChatRoomListProps {
+  onRoomSelect?: () => void;
+}
+
+
+const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
+
+  // --- DEBUG PANEL: Show context state at the very top ---
+  // This will always render at the top of the page, even before loading guards
+
+  // Always show a debug panel at the very top for troubleshooting
+  // IMPORTANT: Only call useAuth/useSocket ONCE at the top!
+  const { user, loading: authLoading, token } = useAuth();
   const { 
     rooms, 
     chatRooms, 
@@ -75,17 +90,20 @@ const ChatRoomList: React.FC = () => {
     currentLocationName, 
     isLocationLoading, 
     locationAccuracy,
-    createEventRoom 
+    createEventRoom,
+    isRoomsLoading
   } = useSocket();
-  
   const [createEventOpen, setCreateEventOpen] = useState(false);
   const [eventName, setEventName] = useState('');
   const [eventDescription, setEventDescription] = useState('');
   const [eventStartDate, setEventStartDate] = useState('');
   const [eventEndDate, setEventEndDate] = useState('');
-
   const navigate = useNavigate();
+  const location = useLocation();
   const { roomId } = useParams<{ roomId: string }>();
+
+  // --- NEW: Robust loading and error guard for user context ---
+  // Always render the sidebar UI. Show loading or error state inside the sidebar if needed.
 
   // Type-safe room ID extraction
   const getRoomId = (room: any): string => {
@@ -98,13 +116,93 @@ const ChatRoomList: React.FC = () => {
   };
 
   const handleRoomClick = (selectedRoomId: string) => {
+    console.log('🔥🔥🔥 ROOM CLICK TRIGGERED!!!', selectedRoomId); 
     console.log('🚪 Navigating to room:', selectedRoomId); 
-    joinRoom(selectedRoomId);
-    navigate(`/chat/${selectedRoomId}`);
+    console.log('🔗 Current URL before navigation:', window.location.href);
+    console.log('🔗 Current React Router location:', location);
+    console.log('🔗 Current pathname:', location.pathname);
+    console.log('🔗 Current search:', location.search);
+    console.log('🔗 Current roomId param:', roomId);
+    
+    // Close mobile menu if callback provided
+    onRoomSelect?.();
+    
+    // 🔥 UPDATED FOR NEW ROUTE FORMAT: /chat/room/:roomId
+    const targetPath = `/chat/room/${selectedRoomId}`;
+    console.log('🔗 Target navigation path:', targetPath);
+    
+    try {
+      // Try normal navigation first (not replace)
+      console.log('🚀 Calling navigate() with normal navigation:', targetPath);
+      navigate(targetPath);
+      console.log('✅ navigate() call completed without error');
+      
+      // Monitor what happens after navigation
+      setTimeout(() => {
+        console.log('🔗 URL after navigation (10ms):', window.location.href);
+        console.log('🔗 Window pathname after navigation (10ms):', window.location.pathname);
+        console.log('🔗 Did navigation stick?', window.location.pathname === targetPath);
+      }, 10);
+      
+      setTimeout(() => {
+        console.log('🔗 URL after navigation (100ms):', window.location.href);
+        console.log('🔗 Window pathname after navigation (100ms):', window.location.pathname);
+        console.log('🔗 Did navigation stick?', window.location.pathname === targetPath);
+      }, 100);
+      
+      setTimeout(() => {
+        console.log('🔗 URL after navigation (500ms):', window.location.href);
+        console.log('🔗 Window pathname after navigation (500ms):', window.location.pathname);
+        console.log('🔗 Did navigation stick?', window.location.pathname === targetPath);
+        if (window.location.pathname !== targetPath) {
+          console.error('❌ NAVIGATION WAS OVERRIDDEN! Something is causing a redirect back to /chat');
+        }
+      }, 500);
+      
+    } catch (error) {
+      console.error('❌ Error during navigation:', error);
+    }
+    
+    console.log('✅ Navigation function completed, SocketContext will handle room joining');
   };
 
+  // Debug: Logge alle relevanten Daten für die Sidebar
+  console.log('🟣 [ChatRoomList] Context rooms:', rooms);
+  console.log('🟣 [ChatRoomList] Context chatRooms:', chatRooms);
+  console.log('🟣 [ChatRoomList] Aktueller User:', user);
   // Verwende rooms ODER chatRooms - welche auch immer gefüllt sind
-  const displayRooms = rooms && rooms.length > 0 ? rooms : chatRooms;
+  const displayRooms = chatRooms;
+  console.log('🟣 [ChatRoomList] displayRooms:', displayRooms);
+
+  // DEBUG: Manual reload and state info
+  // This will render a debug button at the top for manual reload and state inspection
+  // Remove DebugReload if reloadRooms is not available to avoid syntax error
+  // If you want to keep a debug panel, just show info:
+  const DebugInfo = () => (
+    <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <Typography variant="caption" sx={{ color: 'white' }}>
+        User: {user?.username || 'none'} | Location: {userLocation ? `${userLocation.latitude},${userLocation.longitude}` : 'none'}
+      </Typography>
+      <Typography variant="caption" sx={{ color: 'white' }}>
+        Rooms: {rooms?.length ?? 0} | ChatRooms: {chatRooms?.length ?? 0}
+      </Typography>
+    </Box>
+  );
+
+  // Ladeanzeige, wenn Räume oder Location noch nicht bereit sind
+  const isLoading = isLocationLoading || isRoomsLoading || !chatRooms?.length;
+
+  if (isLoading) {
+    return (
+      <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 4 }}>
+        <CircularProgress color="primary" />
+        <Typography variant="h6" sx={{ mt: 2, color: 'primary.main' }}>
+          Suche Räume in deiner Nähe ...
+        </Typography>
+      </Box>
+    );
+  }
+
 
   // KORRIGIERT: getRoomIcon ohne Type Assertion - akzeptiert string types
   const getRoomIcon = (roomType: string, roomSubType?: string) => {
@@ -187,57 +285,56 @@ const ChatRoomList: React.FC = () => {
     return convertedRoom;
   }) || [];
 
+
   console.log('🔄 Converted rooms:', convertedRooms.length, convertedRooms.map(r => `${r.name} (type: ${r.type}, subType: ${r.subType})`));
 
-  // KRITISCHER FIX: Filter nur auf 'location' - Server sendet jetzt korrekte Types
-  const localRooms = convertedRooms.filter(room => 
-    room.type === 'location' // Nur location - neighborhood ist jetzt subType!
+  // Room category arrays
+  const regionalRooms = convertedRooms.filter(
+    (room) => room.type === 'location' && room.subType === 'regional'
   );
-  
-  const regionalRooms = localRooms.filter(room => 
-    room.subType === 'regional'
+  const cityRooms = convertedRooms.filter(
+    (room) => room.type === 'location' && room.subType === 'city'
   );
-
-  // FEHLENDE VARIABLEN:
-  const cityRooms = localRooms.filter(room => 
-    room.subType === 'city'
+  const allNeighborhoodRooms = convertedRooms.filter(
+    (room) => room.type === 'location' && room.subType === 'neighborhood'
   );
-  
-  const eventRooms = convertedRooms.filter(room => 
-    room.type === 'event'
+  const eventRooms = convertedRooms.filter(
+    (room) => room.type === 'event'
   );
-  
-  const globalRooms = convertedRooms.filter(room => 
-    room.type === 'global'
+  const globalRooms = convertedRooms.filter(
+    (room) => room.type === 'global'
   );
 
-  // ALLE lokalen Rooms als Neighborhood anzeigen
-  const allNeighborhoodRooms = localRooms;
+  // DEBUG: Zeige alle Räume ungefiltert an
+  console.log('🏗️ DEBUG: Zeige alle convertedRooms:', convertedRooms);
 
-  console.log('🏗️ After type filtering:');
-  console.log('   Local rooms:', localRooms.length, localRooms.map(r => r.name));
-  console.log('   Event rooms:', eventRooms.length);
-  console.log('   Global rooms:', globalRooms.length);
+  // Debug-Panel Sichtbarkeit steuern
+  const [showDebug, setShowDebug] = useState(false);
+
+  // Debug-Button (nur für Entwickler sichtbar)
+  const DebugToggleButton = () => (
+    <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10000 }}>
+      <Button size="small" variant="outlined" color="secondary" onClick={() => setShowDebug(v => !v)}>
+        {showDebug ? 'Debug ausblenden' : 'Debug anzeigen'}
+      </Button>
+    </Box>
+  );
+
 
   return (
-    <Box sx={{ 
-      height: '100vh', 
-      display: 'flex', 
-      flexDirection: 'column',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      color: 'white'
-    }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
       {/* Header */}
       <Box sx={{ 
         p: 2, 
         borderBottom: '1px solid rgba(255,255,255,0.2)',
-        background: 'rgba(255,255,255,0.1)',
-        backdropFilter: 'blur(10px)'
+        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+        backdropFilter: 'blur(10px)',
+        color: 'white'
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
           <Typography variant="h6" sx={{ 
             fontWeight: 'bold',
-            background: 'linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%)',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text'
@@ -250,48 +347,35 @@ const ChatRoomList: React.FC = () => {
             </Tooltip>
           )}
         </Box>
-        
-        {/* Loading-State für Standortermittlung */}
-        {isLocationLoading && (
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <CircularProgress size={16} sx={{ mr: 1, color: 'white' }} />
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-              Standort wird ermittelt...
-            </Typography>
-          </Box>
-        )}
-        
-        {/* Aktueller Standort - nur wenn nicht loading */}
-        {currentLocationName && !isLocationLoading && (
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <LocationOn sx={{ fontSize: 16, mr: 0.5, color: 'white' }} />
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-              {currentLocationName}
-            </Typography>
-            {locationAccuracy && (
-              <Chip 
-                label={`±${Math.round(locationAccuracy)}m`} 
-                size="small" 
-                sx={{ 
-                  ml: 1, 
-                  fontSize: '0.6rem', 
-                  height: 16,
-                  backgroundColor: 'rgba(255,255,255,0.2)',
-                  color: 'white'
-                }}
-                color={locationAccuracy <= 100 ? 'success' : locationAccuracy <= 500 ? 'warning' : 'default'}
-              />
-            )}
-          </Box>
-        )}
 
-        {/* Rooms Loading-State */}
-        {convertedRooms.length === 0 && !isLocationLoading && (
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <CircularProgress size={16} sx={{ mr: 1, color: 'white' }} />
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-              Chat-Räume werden geladen...
+        {/* Loading/Error State for User */}
+        {authLoading && (
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, flexDirection: 'column' }}>
+            <CircularProgress color="secondary" />
+            <Typography sx={{ ml: 2, mt: 2 }}>Lade Benutzerdaten...</Typography>
+            <Box sx={{ mt: 2, p: 2, background: 'rgba(0,0,0,0.7)', borderRadius: 2 }}>
+              <Typography variant="caption" sx={{ color: 'orange' }}>
+                Debug: user={String(user)} | token={token ? token.slice(0,12)+'...' : 'none'} | authLoading={String(authLoading)}
+              </Typography>
+            </Box>
+            <Typography variant="caption" sx={{ color: 'red', mt: 2 }}>
+              Warte auf Authentifizierung...
             </Typography>
+          </Box>
+        )}
+        {!authLoading && !user && (
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, flexDirection: 'column' }}>
+            <Typography variant="h6" sx={{ color: 'red', mb: 2 }}>
+              ❌ Kein Benutzer geladen! Bitte neu einloggen.
+            </Typography>
+            <Button variant="contained" color="secondary" onClick={() => window.location.reload()} sx={{ mb: 2 }}>
+              Seite neu laden
+            </Button>
+            <Box sx={{ mt: 2, p: 2, background: 'rgba(0,0,0,0.7)', borderRadius: 2 }}>
+              <Typography variant="caption" sx={{ color: 'orange' }}>
+                Debug: user={String(user)} | token={token ? token.slice(0,12)+'...' : 'none'} | authLoading={String(authLoading)}
+              </Typography>
+            </Box>
           </Box>
         )}
       </Box>
@@ -300,418 +384,81 @@ const ChatRoomList: React.FC = () => {
       <Box sx={{ 
         flex: 1, 
         overflow: 'auto',
-        background: 'rgba(255,255,255,0.05)',
-        backdropFilter: 'blur(20px)'
+        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+        backdropFilter: 'blur(10px)',
+        color: 'white'
       }}>
-        {/* Regional-Chats */}
-        {regionalRooms.length > 0 && (
-          <>
-            <Box sx={{ p: 2, pb: 1 }}>
-              <Typography variant="subtitle2" sx={{ 
-                fontWeight: 'bold',
-                color: 'white'
-              }}>
-                🌍 Regional ({regionalRooms.length})
-              </Typography>
-            </Box>
-            <List dense>
-              {regionalRooms.map((room, index) => (
-                <ListItem key={`regional-${getRoomId(room)}-${index}`} disablePadding>
-                  <ListItemButton
-                    selected={roomId === getRoomId(room)}
-                    onClick={() => handleRoomClick(getRoomId(room))}
-                    sx={{
-                      borderRadius: 1,
-                      mx: 1,
-                      mb: 0.5,
-                      background: roomId === getRoomId(room) 
-                        ? 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)'
-                        : 'rgba(255,255,255,0.1)',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.1) 100%)',
-                        transform: 'translateY(-2px)',
-                      },
-                      transition: 'all 0.3s ease',
-                      color: 'white'
-                    }}
-                  >
-                    <ListItemIcon>
-                      <Badge badgeContent={room.participants} color="primary">
-                        {getRoomIcon(room.type, room.subType)}
-                      </Badge>
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={room.name}
-                      secondary={
-                        <Box component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                          <Box component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <People fontSize="small" />
-                            <Typography component="span" variant="caption">
-                              {room.participants || 0} online
-                            </Typography>
-                          </Box>
-                          {room.distance !== undefined && room.distance !== null && (
-                            <Chip 
-                              label={`${room.distance}km`}
-                              size="small" 
-                              variant="outlined"
-                              sx={{ 
-                                height: 16, 
-                                fontSize: '0.7rem',
-                                borderColor: 'rgba(255,255,255,0.5)',
-                                color: 'white'
-                              }}
-                            />
-                          )}
-                        </Box>
-                      }
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
-            </List>
-            <Divider sx={{ my: 1, borderColor: 'rgba(255,255,255,0.2)' }} />
-          </>
-        )}
-
-        {/* Stadt-Chats */}
-        {cityRooms.length > 0 && (
-          <>
-            <Box sx={{ p: 2, pb: 1 }}>
-              <Typography variant="subtitle2" sx={{ 
-                fontWeight: 'bold',
-                color: 'white'
-              }}>
-                🏙️ Stadt ({cityRooms.length})
-              </Typography>
-            </Box>
-            <List dense>
-              {cityRooms.map((room, index) => (
-                <ListItem key={`city-${getRoomId(room)}-${index}`} disablePadding>
-                  <ListItemButton
-                    selected={roomId === getRoomId(room)}
-                    onClick={() => handleRoomClick(getRoomId(room))}
-                    sx={{
-                      borderRadius: 1,
-                      mx: 1,
-                      mb: 0.5,
-                      background: roomId === getRoomId(room) 
-                        ? 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)'
-                        : 'rgba(255,255,255,0.1)',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.1) 100%)',
-                        transform: 'translateY(-2px)',
-                      },
-                      transition: 'all 0.3s ease',
-                      color: 'white'
-                    }}
-                  >
-                    <ListItemIcon>
-                      <Badge badgeContent={room.participants} color="primary">
-                        {getRoomIcon(room.type, room.subType)}
-                      </Badge>
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={room.name}
-                      secondary={
-                        <Box component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                          <Box component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <People fontSize="small" />
-                            <Typography component="span" variant="caption">
-                              {room.participants || 0} online
-                            </Typography>
-                          </Box>
-                          {room.distance !== undefined && room.distance !== null && (
-                            <Chip 
-                              label={`${room.distance}km`}
-                              size="small" 
-                              variant="outlined"
-                              sx={{ 
-                                height: 16, 
-                                fontSize: '0.7rem',
-                                borderColor: 'rgba(255,255,255,0.5)',
-                                color: 'white'
-                              }}
-                            />
-                          )}
-                        </Box>
-                      }
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
-            </List>
-            <Divider sx={{ my: 1, borderColor: 'rgba(255,255,255,0.2)' }} />
-          </>
-        )}
-
-        {/* Nachbarschafts-Chats - VERWENDE ALLE NEIGHBORHOOD ROOMS */}
-        {allNeighborhoodRooms.length > 0 && (
-          <>
-            <Box sx={{ p: 2, pb: 1 }}>
-              <Typography variant="subtitle2" sx={{ 
-                fontWeight: 'bold',
-                color: 'white'
-              }}>
-                🏘️ Nachbarschaft ({allNeighborhoodRooms.length})
-              </Typography>
-            </Box>
-            <List dense>
-              {allNeighborhoodRooms.map((room, index) => (
-                <ListItem key={`neighborhood-${getRoomId(room)}-${index}`} disablePadding>
-                  <ListItemButton
-                    selected={roomId === getRoomId(room)}
-                    onClick={() => handleRoomClick(getRoomId(room))}
-                    sx={{
-                      borderRadius: 1,
-                      mx: 1,
-                      mb: 0.5,
-                      background: roomId === getRoomId(room) 
-                        ? 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)'
-                        : 'rgba(255,255,255,0.1)',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.1) 100%)',
-                        transform: 'translateY(-2px)',
-                      },
-                      transition: 'all 0.3s ease',
-                      color: 'white'
-                    }}
-                  >
-                    <ListItemIcon>
-                      <Badge badgeContent={room.participants} color="secondary">
-                        {getRoomIcon(room.type || 'location', room.subType)}
-                      </Badge>
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={room.name}
-                      secondary={
-                        <Box component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                          <Box component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <People fontSize="small" />
-                            <Typography component="span" variant="caption">
-                              {room.participants || 0} online
-                            </Typography>
-                          </Box>
-                          {room.distance !== undefined && room.distance !== null && (
-                            <Chip 
-                              label={`${room.distance}km`}
-                              size="small" 
-                              variant="outlined"
-                              sx={{ 
-                                height: 16, 
-                                fontSize: '0.7rem',
-                                borderColor: 'rgba(255,255,255,0.5)',
-                                color: 'white'
-                              }}
-                            />
-                          )}
-                        </Box>
-                      }
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
-            </List>
-            <Divider sx={{ my: 1, borderColor: 'rgba(255,255,255,0.2)' }} />
-          </>
-        )}
-
-        {/* Event-Chats */}
-        {eventRooms.length > 0 && (
-          <>
-            <Box sx={{ p: 2, pb: 1 }}>
-              <Typography variant="subtitle2" sx={{ 
-                fontWeight: 'bold',
-                color: 'white'
-              }}>
-                🎉 Events ({eventRooms.length})
-              </Typography>
-            </Box>
-            <List dense>
-              {eventRooms.map((room, index) => (
-                <ListItem key={`event-${getRoomId(room)}-${index}`} disablePadding>
-                  <ListItemButton
-                    selected={roomId === getRoomId(room)}
-                    onClick={() => handleRoomClick(getRoomId(room))}
-                    sx={{
-                      borderRadius: 1,
-                      mx: 1,
-                      mb: 0.5,
-                      background: roomId === getRoomId(room) 
-                        ? 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)'
-                        : 'rgba(255,255,255,0.1)',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.1) 100%)',
-                        transform: 'translateY(-2px)',
-                      },
-                      transition: 'all 0.3s ease',
-                      color: 'white'
-                    }}
-                  >
-                    <ListItemIcon>
-                      <Badge badgeContent={room.participants} color="secondary">
-                        <Event color="secondary" />
-                      </Badge>
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={room.event?.name || room.name}
-                      secondary={
-                        <Box>
-                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                            {room.event?.description || room.description || 'Event beschreibung'}
-                          </Typography>
-                          {room.event?.startDate && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                              <Schedule fontSize="small" color="action" />
-                              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                                {formatEventTime(room.event.startDate)}
-                              </Typography>
-                            </Box>
-                          )}
-                        </Box>
-                      }
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
-            </List>
-            <Divider sx={{ my: 1, borderColor: 'rgba(255,255,255,0.2)' }} />
-          </>
-        )}
-
-        {/* Global-Chats */}
-        {globalRooms.length > 0 && (
-          <>
-            <Box sx={{ p: 2, pb: 1 }}>
-              <Typography variant="subtitle2" sx={{ 
-                fontWeight: 'bold',
-                color: 'rgba(255,255,255,0.7)'
-              }}>
-                🌐 Global ({globalRooms.length})
-              </Typography>
-            </Box>
-            <List dense>
-              {globalRooms.map((room) => (
-                <ListItem key={getRoomId(room)} disablePadding>
-                  <ListItemButton
-                    selected={roomId === getRoomId(room)}
-                    onClick={() => handleRoomClick(getRoomId(room))}
-                    sx={{
-                      borderRadius: 1,
-                      mx: 1,
-                      mb: 0.5,
-                      background: roomId === getRoomId(room) 
-                        ? 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)'
-                        : 'rgba(255,255,255,0.1)',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.1) 100%)',
-                        transform: 'translateY(-2px)',
-                      },
-                      transition: 'all 0.3s ease',
-                      color: 'white'
-                    }}
-                  >
-                    <ListItemIcon>
-                      <Badge badgeContent={room.participants} color="primary">
-                        <Public color="action" />
-                      </Badge>
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={room.name}
-                      secondary={
-                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                          {room.participants} aktiv weltweit
-                        </Typography>
-                      }
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
-            </List>
-          </>
-        )}
-
-        {/* FALLBACK: Zeige alle Rooms wenn keine Kategorisierung funktioniert */}
-        {convertedRooms.length > 0 && regionalRooms.length === 0 && cityRooms.length === 0 && allNeighborhoodRooms.length === 0 && eventRooms.length === 0 && (
-          <>
-            <Box sx={{ p: 2, pb: 1 }}>
-              <Typography variant="subtitle2" sx={{ 
-                fontWeight: 'bold',
-                color: 'white'
-              }}>
-                📍 Alle Chat-Räume ({convertedRooms.length})
-              </Typography>
-            </Box>
-            <List dense>
-              {convertedRooms.map((room, index) => (
-                <ListItem key={`all-${getRoomId(room)}-${index}`} disablePadding>
-                  <ListItemButton
-                    selected={roomId === getRoomId(room)}
-                    onClick={() => handleRoomClick(getRoomId(room))}
-                    sx={{
-                      borderRadius: 1,
-                      mx: 1,
-                      mb: 0.5,
-                      background: roomId === getRoomId(room) 
-                        ? 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%)'
-                        : 'rgba(255,255,255,0.1)',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.1) 100%)',
-                        transform: 'translateY(-2px)',
-                      },
-                      transition: 'all 0.3s ease',
-                      color: 'white'
-                    }}
-                  >
-                    <ListItemIcon>
-                      <Badge badgeContent={room.participants} color="primary">
-                        {getRoomIcon(room.type, room.subType)}
-                      </Badge>
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={room.name}
-                      secondary={
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <People fontSize="small" />
-                            <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <People fontSize="small" />
-                              <span>0 online</span> {/* Zeige "0 online" für neue Räume statt der generierten Teilnehmer */}
-                            </Typography>
-                          </span>
-                          {room.distance !== undefined && room.distance !== null && (
-                            <Chip 
-                              label={`${room.distance}km`}
-                              size="small" 
-                              variant="outlined"
-                              sx={{ 
-                                height: 16, 
-                                fontSize: '0.7rem',
-                                borderColor: 'rgba(255,255,255,0.5)',
-                                color: 'white'
-                              }}
-                            />
-                          )}
-                        </span>
-                      }
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
-            </List>
-            <Divider sx={{ my: 1, borderColor: 'rgba(255,255,255,0.2)' }} />
-          </>
-        )}
-
-        {convertedRooms.length === 0 && !isLocationLoading && (
+        {convertedRooms.length === 0 ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 2 }}>
-              🏠 Keine Chat-Räume verfügbar
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-              Standort wird verarbeitet oder Server-Problem
+            <CircularProgress color="secondary" />
+            <Typography sx={{ mt: 2, color: 'rgba(255,255,255,0.7)' }}>
+              Lade Chatrooms...
             </Typography>
           </Box>
+        ) : (
+          <List sx={{ p: 0 }}>
+            {/* Alle Chatrooms anzeigen */}
+            {convertedRooms.map((room) => (
+              <ListItem key={room.id} disablePadding>
+                <ListItemButton
+                  onClick={() => handleRoomClick(room.id)}
+                  sx={{
+                    borderBottom: '1px solid rgba(255,255,255,0.1)',
+                    '&:hover': {
+                      background: 'rgba(255,255,255,0.1)',
+                    },
+                    '&.Mui-selected': {
+                      background: 'rgba(255,255,255,0.2)',
+                    }
+                  }}
+                  selected={roomId === room.id}
+                >
+                  <ListItemIcon>
+                    {getRoomIcon(room.type, room.subType)}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          {room.name}
+                        </Typography>
+                        {room.distance && (
+                          <Chip
+                            label={`${room.distance.toFixed(1)}km`}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        )}
+                      </Box>
+                    }
+                    secondary={
+                      <Box>
+                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                          {room.type === 'location' ? 'Lokaler Chat' : 
+                           room.type === 'event' ? 'Event Chat' : 'Globaler Chat'}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                          <People fontSize="small" sx={{ color: 'rgba(255,255,255,0.5)' }} />
+                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                            {room.participants} Teilnehmer
+                          </Typography>
+                        </Box>
+                      </Box>
+                    }
+                  />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Badge badgeContent={room.participants} color="primary" />
+                    <FavoriteButton 
+                      roomId={room.id} 
+                      roomName={room.name}
+                      size="small"
+                    />
+                  </Box>
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
         )}
       </Box>
 
@@ -793,6 +540,6 @@ const ChatRoomList: React.FC = () => {
       </Dialog>
     </Box>
   );
-};
+}
 
 export default ChatRoomList;

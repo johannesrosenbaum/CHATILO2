@@ -409,8 +409,8 @@ function getNearbyPlaces(latitude, longitude, maxDistance = 15000) {
 
 // Erweiterte Radius-Konfiguration für verschiedene Bereiche (REDUZIERT AUF 5KM)
 const RADIUS_CONFIG = {
-  regional: 20000,     // 20km für regionale Bereiche
-  neighborhood: 5000,  // 5km für Nachbarschafts-Bereiche (REDUZIERT VON 10KM)
+  neighborhood: 5000, // 5km für Nachbarschaft
+  regional: 80000,    // 80km für regionale Bereiche (vorher 30km)
   city: 8000,          // 8km für Stadt-Bereiche
   events: 15000        // 15km für Event-Entdeckung
 };

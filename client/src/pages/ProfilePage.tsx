@@ -116,6 +116,7 @@ const ProfilePage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [uploading, setUploading] = useState(false);
   
   const [editData, setEditData] = useState({
     username: user?.username || '',
@@ -123,19 +124,80 @@ const ProfilePage: React.FC = () => {
     bio: user?.bio || '' // BIO HINZUGEFÜGT
   });
 
+  // Avatar Upload Handler
+  const handleAvatarUpload = async (file: File) => {
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/auth/avatar', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('👤 Avatar uploaded successfully:', result.avatar);
+        setSnackbar({ 
+          open: true, 
+          message: 'Avatar erfolgreich hochgeladen!', 
+          severity: 'success' 
+        });
+        // Refresh user data
+        window.location.reload(); // Simple refresh for now
+      } else {
+        console.error('❌ Avatar upload failed:', result.error);
+        setSnackbar({ 
+          open: true, 
+          message: 'Fehler beim Hochladen: ' + result.error, 
+          severity: 'error' 
+        });
+      }
+    } catch (error) {
+      console.error('❌ Avatar upload error:', error);
+      setSnackbar({ 
+        open: true, 
+        message: 'Fehler beim Hochladen des Avatars', 
+        severity: 'error' 
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setSelectedImage(e.target?.result as string);
+      // Validierung
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
         setSnackbar({ 
           open: true, 
-          message: 'Profilbild aktualisiert! Vergiss nicht zu speichern.', 
-          severity: 'success' 
+          message: 'Datei ist zu groß. Maximum 5MB erlaubt.', 
+          severity: 'error' 
         });
-      };
-      reader.readAsDataURL(file);
+        return;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        setSnackbar({ 
+          open: true, 
+          message: 'Nur Bild-Dateien sind erlaubt.', 
+          severity: 'error' 
+        });
+        return;
+      }
+
+      // Upload direkt
+      handleAvatarUpload(file);
     }
   };
 

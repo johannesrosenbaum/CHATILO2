@@ -1,0 +1,181 @@
+import Reaimport React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import ChatPage from './pages/ChatPage';
+import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
+import { AuthProvider } from './contexts/AuthContext';
+import { SocketProvider } from './contexts/SocketContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import { createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline'; Extract roomId from ANY path that starts with /chat/
+  // Examples: /chat/neighborhood_dedenbach -> "neighborhood_dedenbach"
+  //          /chat -> undefined
+  const pathParts = location.pathname.split('/').filter(part => part); // Remove empty parts
+  const finalRoomId = pathParts.length > 1 ? pathParts[1] : undefined; // Get part after "chat"
+  
+  console.log('🔥 ChatPageWrapper ULTIMATE FIX:');
+  console.log('   Full pathname:', location.pathname);
+  console.log('   Path parts after split:', pathParts);
+  console.log('   Extracted roomId:', finalRoomId);
+  console.log('   Will join room:', !!finalRoomId);State } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import ChatPage from './pages/ChatPage';
+import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
+import { AuthProvider } from './contexts/AuthContext';
+import { SocketProvider } from './contexts/SocketContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import { createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+
+// Chat page wrapper component to extract roomId and pass to SocketProvider
+const ChatPageWrapper: React.FC = () => {
+  const { roomId: urlRoomId } = useParams<{ roomId?: string }>();
+  const location = useLocation();
+  
+  // Extract roomId from URL path manually if useParams fails
+  const pathParts = location.pathname.split('/');
+  const extractedRoomId = pathParts[2]; // /chat/[roomId]
+  const finalRoomId = urlRoomId || extractedRoomId;
+  
+  console.log('� ChatPageWrapper FIXED:');
+  console.log('   URL pathname:', location.pathname);
+  console.log('   Path parts:', pathParts);
+  console.log('   urlRoomId from params:', urlRoomId);
+  console.log('   extractedRoomId from path:', extractedRoomId);
+  console.log('   FINAL roomId:', finalRoomId);
+  
+  return (
+    <SocketProvider roomId={finalRoomId || undefined}>
+      <ChatPage />
+    </SocketProvider>
+  );
+};
+
+const theme = createTheme({
+  palette: {
+    primary: { main: '#2e0854' }, // Much darker purple
+    secondary: { main: '#4a148c' }, // Darker purple secondary
+  },
+  components: {
+    // Override backdrop to be darker purple with transparency
+    MuiBackdrop: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'rgba(46, 8, 84, 0.95) !important', // Very dark purple with very high opacity
+          backdropFilter: 'blur(4px)',
+        },
+      },
+    },
+    // Override modal backdrop specifically  
+    MuiModal: {
+      styleOverrides: {
+        backdrop: {
+          backgroundColor: 'rgba(46, 8, 84, 0.95) !important', // Very opaque dark purple
+          backdropFilter: 'blur(5px)',
+        },
+      },
+    },
+    // Override drawer backdrop AND paper for dark mobile menu
+    MuiDrawer: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: '#1a0033 !important', // Very dark purple background for the menu itself
+          color: '#ffffff !important', // White text
+        },
+        root: {
+          '& .MuiBackdrop-root': {
+            backgroundColor: 'rgba(46, 8, 84, 0.95) !important', // Dark purple backdrop
+          }
+        }
+      },
+    },
+    // Make all text in drawers white
+    MuiListItemText: {
+      styleOverrides: {
+        root: {
+          '& .MuiTypography-root': {
+            color: '#ffffff !important',
+          }
+        }
+      }
+    },
+    // Make list item buttons dark with hover effects
+    MuiListItemButton: {
+      styleOverrides: {
+        root: {
+          color: '#ffffff !important',
+          '&:hover': {
+            backgroundColor: 'rgba(255, 255, 255, 0.1) !important',
+          }
+        }
+      }
+    }
+  },
+});
+
+function App() {
+  console.log('🔧 DEBUG: App component initializing...');
+  
+  useEffect(() => {
+    console.log('🔧 DEBUG: App useEffect - Component mounted');
+    console.log('   Current URL:', window.location.href);
+    console.log('   Pathname:', window.location.pathname);
+    
+    return () => {
+      console.log('🔧 DEBUG: App useEffect - Component will unmount');
+    };
+  }, []);
+
+  console.log('🔧 DEBUG: App component rendering...');
+  
+  return (
+    <AuthProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            
+            {/* � COMPLETELY FIXED ROUTING - More specific pattern first */}
+            <Route
+              path="/chat/*"
+              element={
+                <ProtectedRoute>
+                  <ChatPageWrapper />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/" element={<Navigate to="/chat" replace />} />
+          </Routes>
+        </Router>
+      </ThemeProvider>
+    </AuthProvider>
+  );
+}
+
+export default App;

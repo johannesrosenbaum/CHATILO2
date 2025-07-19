@@ -2,20 +2,27 @@ import React, { useState } from 'react';
 import { Box, Typography, Paper, Avatar, IconButton } from '@mui/material';
 import { PlayArrow } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
-import { Message } from '../contexts/SocketContext';
+import { Message as SocketMessage } from '../contexts/SocketContext';
+import { Message as TypesMessage } from '../types';
+
+// Union type to support both message formats
+type MessageUnion = SocketMessage | TypesMessage;
 
 interface MessageItemProps {
-  message: Message;
+  message: MessageUnion;
+  isOwnMessage?: boolean;
+  showAvatar?: boolean;
 }
 
-const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
+const MessageItem: React.FC<MessageItemProps> = ({ message, isOwnMessage: propIsOwnMessage, showAvatar = true }) => {
   const { user } = useAuth();
   const [isPlaying, setIsPlaying] = useState(false);
   
-  const messageUserId = message.sender?._id || message.sender?.id || message.userId;
-  const currentUserId = user?.id || user?._id;
-  const isOwnMessage = messageUserId === currentUserId;
-  const senderName = message.sender?.username || message.username || 'Unbekannt';
+  // Handle both message formats
+  const messageUserId = (message as any).sender?._id || (message as any).sender?.id || message.userId;
+  const currentUserId = user?._id;
+  const isOwnMessage = propIsOwnMessage ?? (messageUserId === currentUserId);
+  const senderName = (message as any).sender?.username || (message as any).username || message.user?.username || 'Unbekannt';
 
   // Format timestamp
   const formatTime = (timestamp: Date | string) => {
@@ -135,7 +142,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         {renderMediaContent()}
         
         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-          {formatTime(message.createdAt || message.timestamp)}
+          {formatTime(message.createdAt || (message as any).timestamp)}
         </Typography>
       </Paper>
     </Box>

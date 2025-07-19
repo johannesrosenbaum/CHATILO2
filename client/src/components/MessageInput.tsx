@@ -33,13 +33,13 @@ const MessageInput: React.FC<MessageInputProps> = ({ roomId }) => {
   const { sendMessage, currentRoom } = useSocket();
 
   const handleSendMessage = () => {
-    if (message.trim() && !uploading) {
-      console.log(`📤 Sending message to room ${currentRoom}: ${message.trim()}`);
-      sendMessage(message.trim());
-      setMessage('');
-    } else {
+    if (!message.trim() || !currentRoom || uploading) {
       console.warn('❌ Cannot send message: missing content or room', { message: message.trim(), currentRoom });
+      return;
     }
+    console.log(`📤 Sending message to room ${currentRoom}: ${message.trim()}`);
+    sendMessage(message.trim());
+    setMessage('');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -115,14 +115,13 @@ const MessageInput: React.FC<MessageInputProps> = ({ roomId }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (message.trim() && currentRoom) {
-      console.log(`📤 Sending message to room ${currentRoom}: ${message.trim()}`);
-      sendMessage(message.trim());
-      setMessage('');
-    } else {
+    if (!message.trim() || !currentRoom) {
       console.warn('❌ Cannot send message: missing content or room', { message: message.trim(), currentRoom });
+      return;
     }
+    console.log(`📤 Sending message to room ${currentRoom}: ${message.trim()}`);
+    sendMessage(message.trim());
+    setMessage('');
   };
 
   const handleSend = () => {

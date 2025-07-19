@@ -16,10 +16,20 @@ const {
   getStructuredLocationAnalysis 
 } = require('../utils/geocoding');
 
-// Configure multer for image uploads
+// Configure multer for media uploads (images, videos, GIFs)
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, '../uploads/images');
+    let uploadDir;
+    
+    // Verschiedene Ordner für verschiedene Medientypen
+    if (file.mimetype.startsWith('image/')) {
+      uploadDir = path.join(__dirname, '../uploads/images');
+    } else if (file.mimetype.startsWith('video/')) {
+      uploadDir = path.join(__dirname, '../uploads/videos');
+    } else {
+      uploadDir = path.join(__dirname, '../uploads/files');
+    }
+    
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -27,18 +37,29 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'image-' + uniqueSuffix + path.extname(file.originalname));
+    const extension = path.extname(file.originalname);
+    const baseName = file.mimetype.startsWith('image/') ? 'image' :
+                    file.mimetype.startsWith('video/') ? 'video' : 'file';
+    cb(null, baseName + '-' + uniqueSuffix + extension);
   }
 });
 
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { 
+    fileSize: 50 * 1024 * 1024 // 50MB limit für Videos
+  },
   fileFilter: function (req, file, cb) {
-    if (file.mimetype.startsWith('image/')) {
+    // Akzeptiere Bilder, Videos und GIFs
+    const allowedTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      'video/mp4', 'video/webm', 'video/mov', 'video/avi'
+    ];
+    
+    if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed!'), false);
+      cb(new Error('Nur Bilder, Videos und GIFs sind erlaubt!'), false);
     }
   }
 });
@@ -65,8 +86,8 @@ router.get('/rooms/nearby', auth, async (req, res) => {
     // Create structured chat rooms based on analysis
     const structuredRooms = [];
     
-    // Add neighborhood rooms (up to 5)
-    analysis.chatRoomStructure.neighborhoods.slice(0, 5).forEach((place, index) => {
+    // Add neighborhood rooms (up to 6)
+    analysis.chatRoomStructure.neighborhoods.slice(0, 6).forEach((place, index) => {
       structuredRooms.push({
         _id: `room_${place.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${index}`,
         name: place.name,
@@ -77,7 +98,7 @@ router.get('/rooms/nearby', auth, async (req, res) => {
         },
         distance: place.distance,
         distanceKm: Math.round(place.distance / 1000 * 10) / 10,
-        participants: Math.floor(Math.random() * 20) + 5, // Simulate participants
+        participants: global.getRoomParticipantCount ? global.getRoomParticipantCount(`room_${place.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${index}`) : 0, // Real participants
         isPublic: true,
         maxParticipants: place.type === 'city' ? 100 : 50,
         radius: place.radius || 2000,
@@ -172,7 +193,7 @@ async function findOrCreateChatRoom(roomData) {
         isActive: true,
         createdAt: new Date(),
         lastActivity: new Date(),
-        createdBy: 'system', // System-generierte Rooms
+        createdBy: null, // System-generierte Rooms
         maxParticipants: roomData.type === 'city' ? 100 : 50,
         isPublic: true
       });
@@ -246,7 +267,7 @@ router.post('/rooms/nearby', auth, async (req, res) => {
         name: `${place.name} Chat`,
         type: 'location',
         subType: 'neighborhood',
-        participants: Math.floor(Math.random() * 20) + 1, // Temporär - sollte real aus Socket-Management kommen
+        participants: global.getRoomParticipantCount ? global.getRoomParticipantCount(roomId) : 0, // Real participants
         description: `Lokaler Chat für ${place.name}`,
         location: {
           latitude: place.lat,
@@ -278,7 +299,7 @@ router.post('/rooms/nearby', auth, async (req, res) => {
         name: `${place.name} Regional`,
         type: 'location',
         subType: 'regional',
-        participants: Math.floor(Math.random() * 30) + 1,
+        participants: global.getRoomParticipantCount ? global.getRoomParticipantCount(roomId) : 0,
         description: `Regionaler Chat für ${place.name}`,
         location: {
           latitude: place.lat,
@@ -292,6 +313,23 @@ router.post('/rooms/nearby', auth, async (req, res) => {
       
       const persistentRoom = await findOrCreateChatRoom(roomData);
       persistentRooms.push(persistentRoom);
+    }
+    // GLOBALER RAUM: Deutschland-Chat immer anhängen, falls nicht vorhanden
+    if (!persistentRooms.some(r => r.type === 'global')) {
+      persistentRooms.push({
+        _id: 'global_de',
+        id: 'global_de',
+        name: 'Deutschland-Chat',
+        type: 'global',
+        subType: 'global',
+        participants: 0,
+        description: 'Überregionaler Chat für ganz Deutschland',
+        isActive: true,
+        location: null,
+        distance: null,
+        createdAt: new Date(),
+        lastActivity: new Date()
+      });
     }
 
     console.log(`✅ Generated ${persistentRooms.length} persistent nearby rooms from structured analysis`);
@@ -451,7 +489,132 @@ router.post('/rooms/:roomId/messages', auth, async (req, res) => {
   }
 });
 
-// Upload image for chat
+// Upload media (images, videos, GIFs) for chat
+router.post('/upload/media', auth, upload.single('media'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Keine Medien-Datei bereitgestellt' 
+      });
+    }
+
+    const { roomId } = req.body;
+    if (!roomId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Room ID ist erforderlich'
+      });
+    }
+
+    // Bestimme Medientyp
+    let mediaType = 'file';
+    if (req.file.mimetype.startsWith('image/')) {
+      mediaType = req.file.mimetype === 'image/gif' ? 'gif' : 'image';
+    } else if (req.file.mimetype.startsWith('video/')) {
+      mediaType = 'video';
+    }
+
+    // Konstruiere URL basierend auf Medientyp
+    let mediaUrl;
+    if (mediaType === 'image' || mediaType === 'gif') {
+      mediaUrl = `/uploads/images/${req.file.filename}`;
+    } else if (mediaType === 'video') {
+      mediaUrl = `/uploads/videos/${req.file.filename}`;
+    } else {
+      mediaUrl = `/uploads/files/${req.file.filename}`;
+    }
+
+    console.log(`📱 Media uploaded: ${mediaUrl}`);
+    console.log(`   Type: ${mediaType}`);
+    console.log(`   User: ${req.user.username}`);
+    console.log(`   File size: ${req.file.size} bytes`);
+    console.log(`   Room: ${roomId}`);
+
+    // Erstelle automatisch eine Message mit dem Media
+    const message = new Message({
+      content: mediaType === 'image' ? '📷 Bild' : 
+               mediaType === 'video' ? '🎥 Video' : 
+               mediaType === 'gif' ? '🎭 GIF' : '📎 Datei',
+      sender: req.user._id,
+      chatRoom: roomId,
+      type: mediaType,
+      mediaUrl: mediaUrl,
+      media: {
+        type: mediaType,
+        url: mediaUrl,
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size
+      }
+    });
+
+    await message.save();
+    await message.populate('sender', 'username avatar');
+
+    console.log(`✅ Media message created with ID: ${message._id}`);
+
+    // Broadcast über Socket.IO (falls verfügbar)
+    const io = req.app.get('io');
+    if (io) {
+      const messageForBroadcast = {
+        _id: message._id,
+        id: message._id,
+        content: message.content,
+        sender: {
+          _id: message.sender._id,
+          id: message.sender._id,
+          username: message.sender.username,
+          avatar: message.sender.avatar
+        },
+        chatRoom: message.chatRoom,
+        type: message.type,
+        mediaUrl: message.mediaUrl,
+        media: message.media,
+        timestamp: message.createdAt,
+        createdAt: message.createdAt
+      };
+
+      io.to(roomId).emit('newMessage', messageForBroadcast);
+      console.log(`📡 Media message broadcasted to room: ${roomId}`);
+    }
+
+    res.json({
+      success: true,
+      mediaUrl: mediaUrl,
+      mediaType: mediaType,
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      size: req.file.size,
+      message: {
+        _id: message._id,
+        content: message.content,
+        sender: {
+          _id: message.sender._id,
+          username: message.sender.username,
+          avatar: message.sender.avatar
+        },
+        chatRoom: message.chatRoom,
+        type: message.type,
+        mediaUrl: message.mediaUrl,
+        media: message.media,
+        timestamp: message.createdAt,
+        createdAt: message.createdAt
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error uploading media:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to upload media',
+      details: error.message 
+    });
+  }
+});
+
+// Upload image for chat (legacy support)
 router.post('/upload/image', auth, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
@@ -638,6 +801,53 @@ async function updateRoomParticipants(roomId, participantCount) {
     console.error(`❌ Error updating room participants for ${roomId}:`, error.message);
   }
 }
+
+// NEU: HTTP-Join-Route für Chatrooms ---
+router.post('/rooms/:roomId/join', auth, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    if (!roomId) {
+      return res.status(400).json({ success: false, error: 'Room ID erforderlich' });
+    }
+    // Versuche, den Raum zu finden
+    let room = await ChatRoom.findById(roomId);
+    if (!room) {
+      // Automatisches Anlegen, falls nicht vorhanden (Minimaldaten)
+      try {
+        const findOrCreateChatRoom = require('../routes/chat.js').findOrCreateChatRoom || global.findOrCreateChatRoom;
+        if (typeof findOrCreateChatRoom === 'function') {
+          room = await findOrCreateChatRoom({
+            _id: roomId,
+            id: roomId,
+            name: roomId,
+            type: 'location',
+            isActive: true
+          });
+        }
+      } catch (e) {
+        console.error('❌ Fehler beim automatischen Anlegen des Raums:', e);
+      }
+      if (!room) {
+        return res.status(404).json({ success: false, room: null, error: 'Raum nicht gefunden und konnte nicht angelegt werden' });
+      }
+    }
+    return res.json({ success: true, room: {
+      _id: room._id,
+      name: room.name,
+      type: room.type,
+      subType: room.subType,
+      description: room.description,
+      participants: room.participants || 0,
+      location: room.location,
+      isActive: room.isActive,
+      createdAt: room.createdAt,
+      lastActivity: room.lastActivity
+    }});
+  } catch (error) {
+    console.error('❌ Fehler beim Room-Join:', error);
+    res.status(500).json({ success: false, error: 'Fehler beim Beitreten zum Raum', details: error.message });
+  }
+});
 
 // Export routes and helper functions
 module.exports = router;

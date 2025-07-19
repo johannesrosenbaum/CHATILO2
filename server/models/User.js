@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -6,15 +7,15 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true,
     trim: true,
-    minlength: 2,
+    minlength: 3,
     maxlength: 30
   },
   email: {
     type: String,
     required: true,
     unique: true,
-    lowercase: true,
-    trim: true
+    trim: true,
+    lowercase: true
   },
   password: {
     type: String,
@@ -25,14 +26,63 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  // 🔥 KORRIGIERT: locationEnabled standardmäßig TRUE
-  locationEnabled: {
-    type: Boolean,
-    default: true // 🔥 GEÄNDERT von false zu true
+  avatarMetadata: {
+    filename: String,
+    originalName: String,
+    size: Number,
+    uploadedAt: Date
   },
-  notificationsEnabled: {
+  firstName: {
+    type: String,
+    trim: true,
+    maxlength: 50
+  },
+  lastName: {
+    type: String,
+    trim: true,
+    maxlength: 50
+  },
+  bio: {
+    type: String,
+    trim: true,
+    maxlength: 500
+  },
+  preferences: {
+    notifications: {
+      type: Boolean,
+      default: true
+    },
+    privacy: {
+      type: String,
+      enum: ['public', 'friends', 'private'],
+      default: 'public'
+    },
+    theme: {
+      type: String,
+      enum: ['dark', 'light', 'auto'],
+      default: 'dark'
+    }
+  },
+  location: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number],
+      default: [0, 0]
+    },
+    address: String,
+    city: String,
+    radius: {
+      type: Number,
+      default: 10
+    }
+  },
+  isAdmin: {
     type: Boolean,
-    default: true
+    default: false
   },
   isActive: {
     type: Boolean,
@@ -41,16 +91,40 @@ const userSchema = new mongoose.Schema({
   lastSeen: {
     type: Date,
     default: Date.now
-  }
-}, {
-  timestamps: true,
-  // 🔥 KORRIGIERT: toJSON Transform für konsistente ID-Felder
-  toJSON: {
-    transform: function(doc, ret) {
-      ret.id = ret._id; // 🔥 Stelle sicher dass id-Feld immer da ist
-      return ret;
-    }
+  },
+  // NEU: Favoriten-Chaträume
+  favorites: [{
+    type: String, // String-IDs für Chaträume
+    ref: 'ChatRoom'
+  }],
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
 });
+
+// Password hashing middleware
+userSchema.pre('save', async function(next) {
+  // Only hash password if it was modified (or new)
+  if (!this.isModified('password')) return next();
+  
+  try {
+    // Hash password with salt rounds of 12
+    const salt = await bcrypt.genSalt(12);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Password comparison method
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
 
 module.exports = mongoose.model('User', userSchema);

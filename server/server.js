@@ -5,6 +5,7 @@ const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 
 // Import routes and handlers - NUR EINMAL!
 const authRoutes = require('./routes/auth');
@@ -29,6 +30,24 @@ async function setupDatabase() {
     console.log('ℹ️ Database setup completed (indexes may already exist)');
   }
 }
+
+// Upload-Ordner erstellen falls sie nicht existieren
+const createUploadDirectories = () => {
+  const directories = [
+    path.join(__dirname, 'uploads'),
+    path.join(__dirname, 'uploads/images'),
+    path.join(__dirname, 'uploads/videos'),
+    path.join(__dirname, 'uploads/files'),
+    path.join(__dirname, 'uploads/avatars')
+  ];
+
+  directories.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log(`📁 Created upload directory: ${dir}`);
+    }
+  });
+};
 
 console.log('🚀 SERVER STARTUP DEBUG:');
 console.log('   Node Version:', process.version);
@@ -56,6 +75,7 @@ const allowedOrigins = [
   // Development
   'http://localhost:1234',
   'http://localhost:3000',
+  'http://localhost:3001',
   'http://82.165.140.194:1234',
   'http://82.165.140.194:1113'
 ];
@@ -125,6 +145,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Static file serving
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+console.log('📁 Serving static files from /uploads directory');
+
+// Call upload directory creation
+createUploadDirectories();
 
 // Routes
 app.use('/api/health', healthRoutes);
@@ -133,6 +157,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/location', locationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/ai', require('./routes/ai'));
 
 // Debug route information
 app._router.stack.forEach((middleware, index) => {

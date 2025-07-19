@@ -3,7 +3,10 @@ const mongoose = require('mongoose');
 const messageSchema = new mongoose.Schema({
   content: {
     type: String,
-    required: true,
+    required: function() {
+      // Content ist nur required wenn kein Media vorhanden ist
+      return !this.mediaUrl && !this.media;
+    },
     trim: true
   },
   sender: {
@@ -25,11 +28,29 @@ const messageSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['text', 'image', 'video', 'file'],
+    enum: ['text', 'image', 'video', 'gif', 'file'],
     default: 'text'
   },
   mediaUrl: {
     type: String
+  },
+  // Erweiterte Media-Informationen
+  media: {
+    type: {
+      type: String,
+      enum: ['image', 'video', 'gif', 'file'],
+    },
+    url: String,
+    filename: String,
+    originalName: String,
+    mimeType: String,
+    size: Number,
+    // Für Videos/GIFs
+    duration: Number,
+    width: Number,
+    height: Number,
+    // Für Bilder
+    thumbnail: String
   },
   likes: [{
     user: {
@@ -46,6 +67,14 @@ const messageSchema = new mongoose.Schema({
     default: false
   },
   editedAt: {
+    type: Date
+  },
+  // Zusätzliche Flags
+  isDeleted: {
+    type: Boolean,
+    default: false
+  },
+  deletedAt: {
     type: Date
   }
 }, {

@@ -1,8 +1,31 @@
 // Socket.IO Handler - Simple Chat Implementation
+
+// Function to get real participant count for a room
+const getRoomParticipantCount = (io, roomId) => {
+  const room = io.sockets.adapter.rooms.get(roomId);
+  return room ? room.size : 0;
+};
+
+// Function to get all room participant counts
+const getAllRoomParticipantCounts = (io) => {
+  const counts = {};
+  for (const [roomId, room] of io.sockets.adapter.rooms) {
+    // Skip personal socket rooms (they start with socket ID patterns)
+    if (!roomId.match(/^[A-Za-z0-9_-]{20,}$/)) {
+      counts[roomId] = room.size;
+    }
+  }
+  return counts;
+};
+
 module.exports = (io) => {
   console.log('🔧 DEBUG: Socket handler initializing...');
   console.log('   Socket.IO server ready');
   console.log('   Server ready for connections');
+
+  // Make participant count functions available globally
+  global.getRoomParticipantCount = (roomId) => getRoomParticipantCount(io, roomId);
+  global.getAllRoomParticipantCounts = () => getAllRoomParticipantCounts(io);
 
   io.on('connection', (socket) => {
     console.log('🔌 New socket connection:', socket.id);
@@ -21,12 +44,20 @@ module.exports = (io) => {
       socket.join(roomId);
       socket.currentRoom = roomId;
       
+      const userCount = getRoomParticipantCount(io, roomId);
+      
       socket.emit('joined-room', {
         roomId,
         messages: [],
-        userCount: 1,
+        userCount: userCount,
         success: true,
         timestamp: new Date().toISOString()
+      });
+      
+      // Notify all users in room about updated participant count
+      io.to(roomId).emit('room-participants-updated', {
+        roomId,
+        count: userCount
       });
     });
 

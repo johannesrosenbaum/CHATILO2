@@ -1,28 +1,72 @@
 version: '3.8'
 
 services:
-  # Development überrides
-  chatilo-server:
+  # MongoDB Database
+  mongodb:
+    image: mongo:6.0
+    container_name: chatilo-mongodb-dev
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: chatilo123
+      MONGO_INITDB_DATABASE: chatilo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data_dev:/data/db
+      - ./server/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - chatilo-network-dev
+
+  # MongoDB Express (Web UI)
+  mongo-express:
+    image: mongo-express:latest
+    container_name: chatilo-mongo-express-dev
+    restart: unless-stopped
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: chatilo123
+      ME_CONFIG_MONGODB_URL: mongodb://admin:chatilo123@mongodb:27017/
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: chatilo123
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mongodb
+    networks:
+      - chatilo-network-dev
+
+  # Backend Server (Development)
+  server:
     build:
       context: ./server
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
+    container_name: chatilo-server-dev
+    restart: unless-stopped
     environment:
       NODE_ENV: development
+      PORT: 1113
+      MONGODB_URI: mongodb://admin:chatilo123@mongodb:27017/chatilo?authSource=admin
+      JWT_SECRET: dev-secret-key-change-in-production
+      CORS_ORIGIN: http://localhost:3000
+      UPLOAD_PATH: ./uploads
+      MAX_FILE_SIZE: 10485760
+    ports:
+      - "1113:1113"
     volumes:
       - ./server:/app
       - /app/node_modules
-    command: ["npm", "run", "dev"]
+      - ./server/uploads:/app/uploads
+    depends_on:
+      - mongodb
+    networks:
+      - chatilo-network-dev
+    command: npm run dev
 
-  chatilo-client:
-    build:
-      context: ./client
-      dockerfile: Dockerfile
-    environment:
-      REACT_APP_API_URL: http://localhost:1113
-      REACT_APP_SOCKET_URL: http://localhost:1113
-    volumes:
-      - ./client:/app
-      - /app/node_modules
-    command: ["npm", "start"]
-    ports:
-      - "1234:3000"
+volumes:
+  mongodb_data_dev:
+    driver: local
+
+networks:
+  chatilo-network-dev:
+    driver: bridge

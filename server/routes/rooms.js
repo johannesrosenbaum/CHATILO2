@@ -50,53 +50,6 @@ router.get('/rooms/nearby', auth, async (req, res) => {
   }
 });
 
-// POST version for more complex queries
-router.post('/rooms/nearby', auth, async (req, res) => {
-  try {
-    const { latitude, longitude, radius = 10000, types = ['neighborhood'] } = req.body;
-    
-    if (!latitude || !longitude) {
-      return res.status(400).json({ message: 'Latitude and longitude required' });
-    }
-    
-    console.log(`🔍 POST Finding nearby rooms for: ${latitude}, ${longitude}`);
-    
-    // Use structured location analysis
-    const analysis = await getStructuredLocationAnalysis(
-      parseFloat(latitude), 
-      parseFloat(longitude)
-    );
-    
-    // Convert places to chat rooms
-    const nearbyRooms = analysis.placesInRadius.map(place => ({
-      _id: `neighborhood_${place.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}_${Math.floor(place.distance)}`,
-      id: `neighborhood_${place.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}_${Math.floor(place.distance)}`,
-      name: `${place.name} Chat`,
-      type: 'location',
-      subType: 'neighborhood',
-      participants: Math.floor(Math.random() * 20) + 5,
-      distance: Math.floor(place.distance / 1000),
-      location: {
-        type: 'Point',
-        coordinates: [place.lng, place.lat],
-        address: place.name,
-        city: place.name,
-        radius: place.radius || 1000
-      },
-      description: `Chat für ${place.name} und Umgebung`,
-      isActive: true,
-      lastActivity: new Date().toISOString()
-    }));
-    
-    console.log(`📍 POST Found ${nearbyRooms.length} nearby rooms`);
-    res.json(nearbyRooms);
-    
-  } catch (error) {
-    console.error('❌ Error finding nearby rooms:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
 // Get all rooms (fallback)
 router.get('/rooms', auth, async (req, res) => {
   try {

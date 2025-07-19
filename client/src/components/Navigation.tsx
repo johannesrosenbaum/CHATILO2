@@ -17,6 +17,7 @@ import {
 import { styled, keyframes } from '@mui/material/styles';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { getAvatarUrl } from '../utils/avatarUtils';
 
 const growFromAvatar = keyframes`
   0% {
@@ -188,7 +189,10 @@ const Navigation: React.FC = () => {
           </Box>
         </FixedToolbar>
 
-        <OverflowAvatar onClick={handleAvatarClick}>
+        <OverflowAvatar 
+          src={getAvatarUrl(user?.avatar)}
+          onClick={handleAvatarClick}
+        >
           {user?.username?.charAt(0)?.toUpperCase() || 'U'}
         </OverflowAvatar>
       </GlassAppBar>

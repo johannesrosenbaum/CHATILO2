@@ -1,67 +1,96 @@
 version: '3.8'
 
 services:
+  # MongoDB (falls nicht bereits vorhanden)
   mongodb:
-    image: mongo:7.0
-    container_name: chatilo-mongodb-prod
-    restart: always
+    image: mongo:6.0
+    container_name: chatilo-mongodb
+    restart: unless-stopped
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: chatilo2024
       MONGO_INITDB_DATABASE: chatilo
     volumes:
-      - mongodb_prod_data:/data/db
+      - mongodb_data:/data/db
+      - ./server/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    ports:
+      - "27017:27017"
     networks:
-      - chatilo-prod-network
+      - chatilo-network
 
+  # Node.js Backend Server
   server:
     build:
       context: ./server
-      dockerfile: Dockerfile.prod
-    container_name: chatilo-server-prod
-    restart: always
+      dockerfile: Dockerfile
+    container_name: chatilo-server
+    restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 1113
-      MONGODB_URI: ${MONGODB_URI}
-      JWT_SECRET: ${JWT_SECRET}
+      MONGODB_URI: mongodb://admin:chatilo2024@mongodb:27017/chatilo?authSource=admin
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
+      SOCKET_URL: https://api.chatilo.de
+      CLIENT_URL: https://www.chatilo.de
+      ALLOWED_ORIGINS: https://www.chatilo.de,https://chatilo.de,http://localhost:3000
+      MAX_FILE_SIZE: 10485760
+      UPLOAD_PATH: /app/uploads
     volumes:
       - ./server/uploads:/app/uploads
+      - server_logs:/app/logs
+    ports:
+      - "1113:1113"
     depends_on:
       - mongodb
     networks:
-      - chatilo-prod-network
+      - chatilo-network
 
+  # React Frontend (Nginx)
   client:
     build:
       context: ./client
-      dockerfile: Dockerfile.prod
-    container_name: chatilo-client-prod
-    restart: always
-    depends_on:
-      - server
-    networks:
-      - chatilo-prod-network
-
-  nginx:
-    image: nginx:alpine
-    container_name: chatilo-nginx
-    restart: always
+      dockerfile: Dockerfile
+    container_name: chatilo-client
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./server/uploads:/var/www/uploads:ro
+    depends_on:
+      - server
+    networks:
+      - chatilo-network
+
+  # Nginx Reverse Proxy (Alternative zu client service)
+  nginx:
+    image: nginx:alpine
+    container_name: chatilo-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./server/uploads:/var/www/uploads:ro
+      - client_build:/var/www/html:ro
     depends_on:
       - client
       - server
     networks:
-      - chatilo-prod-network
+      - chatilo-network
 
 volumes:
-  mongodb_prod_data:
+  mongodb_data:
+    driver: local
+  server_logs:
+    driver: local
+  client_build:
+    driver: local
 
 networks:
-  chatilo-prod-network:
+  chatilo-network:
     driver: bridge
