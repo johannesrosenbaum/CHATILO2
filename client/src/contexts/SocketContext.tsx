@@ -316,7 +316,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
             });
             if (getResponse.ok) {
               const fetchedRooms = await getResponse.json();
-              const roomsArray = fetchedRooms.data || fetchedRooms.rooms || fetchedRooms || [];
+              const roomsArray = fetchedRooms.rooms || fetchedRooms.data || fetchedRooms || [];
               setRooms(roomsArray);
               setChatRooms(roomsArray);
               console.log(`✅ Räume nach Initialisierung per GET geladen: ${roomsArray.length} Räume`);
