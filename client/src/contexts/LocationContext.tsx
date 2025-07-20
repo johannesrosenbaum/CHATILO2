@@ -68,6 +68,15 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [setLocationCallback]);
 
+  // 🔥 KORRIGIERT: Wrapper-Funktion für loadNearbyChatRooms ohne Parameter
+  const loadNearbyChatRoomsWrapper = async () => {
+    if (state.currentLocation) {
+      await loadNearbyChatRooms(state.currentLocation);
+    } else {
+      console.log('⚠️ Kein Standort verfügbar für NearbyChatRooms');
+    }
+  };
+
   // 🔥 KORRIGIERT: Debug-Callback-Registrierung mit useRef
   const debugSetChatRoomsCallback = (callback: (rooms: ChatRoom[]) => void) => {
     console.log('🔧 LocationContext: ChatRoomsCallback registriert');
@@ -86,6 +95,14 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
     }
   }, []);
+
+  // 🔥 NEU: Lade NearbyChatRooms wenn User verfügbar ist
+  useEffect(() => {
+    if (state.currentLocation && chatRoomsCallbackRef.current) {
+      console.log('🔄 Automatisches Laden der NearbyChatRooms nach User-Login...');
+      loadNearbyChatRooms(state.currentLocation);
+    }
+  }, [state.currentLocation, chatRoomsCallbackRef.current]);
 
   const getCurrentLocation = async (): Promise<Location | null> => {
     return new Promise((resolve, reject) => {
@@ -113,6 +130,16 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             // Get address from coordinates using reverse geocoding
             const address = await getAddressFromCoordinates(latitude, longitude);
             
+            // 🔥 NEU: Validiere Standort vor dem Speichern
+            if (isNaN(latitude) || isNaN(longitude) || latitude === 0 || longitude === 0) {
+              console.log('❌ Ungültige Koordinaten erhalten:', { latitude, longitude });
+              const errorMessage = 'Ungültige Standortdaten erhalten';
+              dispatch({ type: 'SET_ERROR', payload: errorMessage });
+              dispatch({ type: 'SET_LOADING', payload: false });
+              reject(new Error(errorMessage));
+              return;
+            }
+
             const location: Location = {
               latitude,
               longitude,
@@ -131,7 +158,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             // 🔥 KORRIGIERT: Warte kurz, damit der State aktualisiert wird
             setTimeout(async () => {
               console.log('🔄 Lade NearbyChatRooms nach Standortaktualisierung...');
-              await loadNearbyChatRooms();
+              await loadNearbyChatRooms(location);
             }, 500);
             
             resolve(location);
@@ -213,82 +240,69 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const loadNearbyChatRooms = async () => {
+  // 🔥 KORRIGIERT: Verbesserte Standortvalidierung
+  const loadNearbyChatRooms = async (location: Location) => {
     console.log('🔍 loadNearbyChatRooms aufgerufen');
-    console.log('📍 Aktueller Standort im State:', state.currentLocation);
+    console.log('📍 Aktueller Standort im State:', location);
     
-    if (!state.currentLocation) {
-      console.log('⚠️ Kein Standort verfügbar für NearbyChatRooms - warte auf Standort...');
-      
-      // 🔥 NEU: Warte auf Standort, falls er noch nicht verfügbar ist
-      let attempts = 0;
-      const maxAttempts = 10;
-      
-      while (!state.currentLocation && attempts < maxAttempts) {
-        console.log(`⏳ Warte auf Standort... Versuch ${attempts + 1}/${maxAttempts}`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        attempts++;
-      }
-      
-      if (!state.currentLocation) {
-        console.log('❌ Standort nach Wartezeit immer noch nicht verfügbar');
-        return;
-      }
+    // 🔥 NEU: Validiere Standort vor API-Aufruf
+    if (!location || 
+        typeof location.latitude !== 'number' || 
+        typeof location.longitude !== 'number' ||
+        isNaN(location.latitude) || 
+        isNaN(location.longitude) ||
+        location.latitude === 0 || 
+        location.longitude === 0) {
+      console.log('❌ Ungültiger Standort für NearbyChatRooms:', location);
+      console.log('   Latitude:', location?.latitude, 'Type:', typeof location?.latitude);
+      console.log('   Longitude:', location?.longitude, 'Type:', typeof location?.longitude);
+      return;
     }
 
+    console.log('🔍 Lade NearbyChatRooms für Standort:', location);
+    
     try {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      
-      console.log('🔍 Lade NearbyChatRooms für Standort:', state.currentLocation);
-      
-      const response = await axios.get('/api/chat/rooms/nearby', {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL || ''}/api/chat/rooms/nearby`, {
         params: {
-          latitude: state.currentLocation.latitude,
-          longitude: state.currentLocation.longitude,
-          radius: 50000, // 50km radius
-        },
+          latitude: location.latitude,
+          longitude: location.longitude,
+          radius: 50000
+        }
       });
 
       console.log('📡 NearbyChatRooms API Response:', response.data);
       
-      // 🔥 KORRIGIERT: Robusteres Parsing der API-Antwort
-      const chatRooms = response.data.rooms || response.data.data || response.data || [];
-      
-      console.log(`✅ NearbyChatRooms geladen: ${chatRooms.length} Räume`);
-      console.log('📋 Räume:', chatRooms);
-      
-      dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: chatRooms });
-      
-      // 🔥 KORRIGIERT: Sende Räume an ChatContext mit useRef
-      console.log('🔍 chatRoomsCallback Status:', chatRoomsCallbackRef.current ? 'verfügbar' : 'NULL');
-      if (chatRoomsCallbackRef.current) {
-        console.log('🔄 Sende Räume an ChatContext...');
-        chatRoomsCallbackRef.current(chatRooms);
+      if (response.data.success && response.data.rooms) {
+        const chatRooms = response.data.rooms;
+        console.log('✅ NearbyChatRooms geladen:', chatRooms.length, 'Räume');
+        console.log('📋 Räume:', chatRooms);
+        
+        dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: chatRooms });
+        
+        // 🔥 KORRIGIERT: Sende Räume an ChatContext mit useRef
+        console.log('🔍 chatRoomsCallback Status:', chatRoomsCallbackRef.current ? 'verfügbar' : 'NULL');
+        if (chatRoomsCallbackRef.current) {
+          console.log('🔄 Sende Räume an ChatContext...');
+          chatRoomsCallbackRef.current(chatRooms);
+        } else {
+          console.log('❌ chatRoomsCallback ist NULL - ChatContext hat noch keinen Callback registriert');
+          // 🔥 NEU: Versuche es später nochmal
+          setTimeout(() => {
+            if (chatRoomsCallbackRef.current) {
+              console.log('🔄 Späterer Versuch: Sende Räume an ChatContext...');
+              chatRoomsCallbackRef.current(chatRooms);
+            } else {
+              console.log('❌ chatRoomsCallback immer noch NULL nach Timeout');
+            }
+          }, 1000);
+        }
       } else {
-        console.log('❌ chatRoomsCallback ist NULL - ChatContext hat noch keinen Callback registriert');
-        // 🔥 NEU: Versuche es später nochmal
-        setTimeout(() => {
-          if (chatRoomsCallbackRef.current) {
-            console.log('🔄 Späterer Versuch: Sende Räume an ChatContext...');
-            chatRoomsCallbackRef.current(chatRooms);
-          } else {
-            console.log('❌ chatRoomsCallback immer noch NULL nach Timeout');
-          }
-        }, 1000);
+        console.log('⚠️ Keine Räume in der API-Antwort gefunden');
+        dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: [] });
       }
-      
-      // If no chat rooms found, create local ones
-      if (chatRooms.length === 0 && state.currentLocation) {
-        console.log('🏗️ Keine Räume gefunden, erstelle lokale Chaträume...');
-        await createLocalChatRooms(state.currentLocation);
-      }
-    } catch (error: any) {
+    } catch (error) {
       console.error('❌ Fehler beim Laden der NearbyChatRooms:', error);
-      const message = error.response?.data?.message || 'Fehler beim Laden der nahen Chaträume';
-      dispatch({ type: 'SET_ERROR', payload: message });
-      toast.error(message);
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
+      dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: [] });
     }
   };
 
@@ -315,7 +329,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     ...state,
     getCurrentLocation,
     updateLocation,
-    loadNearbyChatRooms,
+            loadNearbyChatRooms: loadNearbyChatRoomsWrapper,
     createLocalChatRooms,
     setChatRoomsCallback: debugSetChatRoomsCallback,
   };
