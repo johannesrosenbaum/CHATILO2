@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { LocationState, Location, ChatRoom } from '../types';
@@ -46,7 +46,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [state, dispatch] = useReducer(locationReducer, initialState);
   const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const { setLocationCallback } = useAuth();
-  const [chatRoomsCallback, setChatRoomsCallback] = useState<((rooms: ChatRoom[]) => void) | null>(null);
+  // 🔥 KORRIGIERT: Verwende useRef für persistenten Callback
+  const chatRoomsCallbackRef = useRef<((rooms: ChatRoom[]) => void) | null>(null);
 
   // Register location callback with AuthContext
   useEffect(() => {
@@ -67,10 +68,10 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [setLocationCallback]);
 
-  // 🔥 NEU: Debug-Callback-Registrierung
+  // 🔥 KORRIGIERT: Debug-Callback-Registrierung mit useRef
   const debugSetChatRoomsCallback = (callback: (rooms: ChatRoom[]) => void) => {
     console.log('🔧 LocationContext: ChatRoomsCallback registriert');
-    setChatRoomsCallback(callback);
+    chatRoomsCallbackRef.current = callback;
   };
 
   // Check location permission on mount
@@ -258,18 +259,18 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       
       dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: chatRooms });
       
-      // 🔥 NEU: Sende Räume an ChatContext
-      console.log('🔍 chatRoomsCallback Status:', chatRoomsCallback ? 'verfügbar' : 'NULL');
-      if (chatRoomsCallback) {
+      // 🔥 KORRIGIERT: Sende Räume an ChatContext mit useRef
+      console.log('🔍 chatRoomsCallback Status:', chatRoomsCallbackRef.current ? 'verfügbar' : 'NULL');
+      if (chatRoomsCallbackRef.current) {
         console.log('🔄 Sende Räume an ChatContext...');
-        chatRoomsCallback(chatRooms);
+        chatRoomsCallbackRef.current(chatRooms);
       } else {
         console.log('❌ chatRoomsCallback ist NULL - ChatContext hat noch keinen Callback registriert');
         // 🔥 NEU: Versuche es später nochmal
         setTimeout(() => {
-          if (chatRoomsCallback) {
+          if (chatRoomsCallbackRef.current) {
             console.log('🔄 Späterer Versuch: Sende Räume an ChatContext...');
-            chatRoomsCallback(chatRooms);
+            chatRoomsCallbackRef.current(chatRooms);
           } else {
             console.log('❌ chatRoomsCallback immer noch NULL nach Timeout');
           }
