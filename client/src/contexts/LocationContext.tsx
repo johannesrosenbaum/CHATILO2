@@ -67,6 +67,12 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [setLocationCallback]);
 
+  // 🔥 NEU: Debug-Callback-Registrierung
+  const debugSetChatRoomsCallback = (callback: (rooms: ChatRoom[]) => void) => {
+    console.log('🔧 LocationContext: ChatRoomsCallback registriert');
+    setChatRoomsCallback(callback);
+  };
+
   // Check location permission on mount
   useEffect(() => {
     if ('geolocation' in navigator) {
@@ -253,9 +259,21 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: chatRooms });
       
       // 🔥 NEU: Sende Räume an ChatContext
+      console.log('🔍 chatRoomsCallback Status:', chatRoomsCallback ? 'verfügbar' : 'NULL');
       if (chatRoomsCallback) {
         console.log('🔄 Sende Räume an ChatContext...');
         chatRoomsCallback(chatRooms);
+      } else {
+        console.log('❌ chatRoomsCallback ist NULL - ChatContext hat noch keinen Callback registriert');
+        // 🔥 NEU: Versuche es später nochmal
+        setTimeout(() => {
+          if (chatRoomsCallback) {
+            console.log('🔄 Späterer Versuch: Sende Räume an ChatContext...');
+            chatRoomsCallback(chatRooms);
+          } else {
+            console.log('❌ chatRoomsCallback immer noch NULL nach Timeout');
+          }
+        }, 1000);
       }
       
       // If no chat rooms found, create local ones
@@ -298,7 +316,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     updateLocation,
     loadNearbyChatRooms,
     createLocalChatRooms,
-    setChatRoomsCallback,
+    setChatRoomsCallback: debugSetChatRoomsCallback,
   };
 
   return <LocationContext.Provider value={value}>{children}</LocationContext.Provider>;
