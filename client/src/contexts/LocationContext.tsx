@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect, useState } fro
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { LocationState, Location, ChatRoom } from '../types';
+import { useAuth } from './AuthContext';
 
 interface LocationContextType extends LocationState {
   getCurrentLocation: () => Promise<Location | null>;
@@ -43,6 +44,17 @@ const locationReducer = (state: LocationState, action: LocationAction): Location
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(locationReducer, initialState);
   const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
+  const { setLocationCallback } = useAuth();
+
+  // Register location callback with AuthContext
+  useEffect(() => {
+    if (setLocationCallback) {
+      const locationWrapper = async () => {
+        await getCurrentLocation();
+      };
+      setLocationCallback(locationWrapper);
+    }
+  }, [setLocationCallback]);
 
   // Check location permission on mount
   useEffect(() => {
@@ -181,11 +193,14 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const loadNearbyChatRooms = async () => {
     if (!state.currentLocation) {
+      console.log('⚠️ Kein Standort verfügbar für NearbyChatRooms');
       return;
     }
 
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
+      
+      console.log('🔍 Lade NearbyChatRooms für Standort:', state.currentLocation);
       
       const response = await axios.get('/api/chat/rooms/nearby', {
         params: {
@@ -195,14 +210,23 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         },
       });
 
-      const chatRooms = response.data.data;
+      console.log('📡 NearbyChatRooms API Response:', response.data);
+      
+      // 🔥 KORRIGIERT: Robusteres Parsing der API-Antwort
+      const chatRooms = response.data.rooms || response.data.data || response.data || [];
+      
+      console.log(`✅ NearbyChatRooms geladen: ${chatRooms.length} Räume`);
+      console.log('📋 Räume:', chatRooms);
+      
       dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: chatRooms });
       
       // If no chat rooms found, create local ones
       if (chatRooms.length === 0 && state.currentLocation) {
+        console.log('🏗️ Keine Räume gefunden, erstelle lokale Chaträume...');
         await createLocalChatRooms(state.currentLocation);
       }
     } catch (error: any) {
+      console.error('❌ Fehler beim Laden der NearbyChatRooms:', error);
       const message = error.response?.data?.message || 'Fehler beim Laden der nahen Chaträume';
       dispatch({ type: 'SET_ERROR', payload: message });
       toast.error(message);

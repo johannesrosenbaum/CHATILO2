@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { User, AuthState, UpdateProfileData } from '../types';
@@ -10,6 +10,7 @@ interface AuthContextType extends AuthState {
   updateProfile: (data: UpdateProfileData) => Promise<void>;
   refreshUser: () => Promise<void>;
   loading: boolean; // Alias für isLoading
+  setLocationCallback: (callback: () => Promise<void>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -61,6 +62,7 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  const [locationCallback, setLocationCallback] = useState<(() => Promise<void>) | null>(null);
 
   // Set up axios defaults
   useEffect(() => {
@@ -113,6 +115,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('✅ AuthContext: User set successfully:', user);
 
+      // 🔥 NEU: Automatische Standortabfrage nach Login
+      setTimeout(async () => {
+        try {
+          console.log('📍 Automatische Standortabfrage nach Login...');
+          if (locationCallback) {
+            await locationCallback();
+          }
+        } catch (error) {
+          console.log('⚠️ Standortabfrage nach Login fehlgeschlagen:', error);
+        }
+      }, 1000);
+
       toast.success('Willkommen zurück!');
     } catch (error: any) {
       console.error('❌ AuthContext: Login failed:', error);
@@ -139,6 +153,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('token', token);
       dispatch({ type: 'SET_TOKEN', payload: token });
       dispatch({ type: 'SET_USER', payload: user });
+
+      // 🔥 NEU: Automatische Standortabfrage nach Register
+      setTimeout(async () => {
+        try {
+          console.log('📍 Automatische Standortabfrage nach Register...');
+          if (locationCallback) {
+            await locationCallback();
+          }
+        } catch (error) {
+          console.log('⚠️ Standortabfrage nach Register fehlgeschlagen:', error);
+        }
+      }, 1000);
 
       toast.success('Account erfolgreich erstellt!');
     } catch (error: any) {
@@ -235,6 +261,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateProfile,
     refreshUser,
     loading: state.isLoading, // Alias für isLoading
+    setLocationCallback,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
