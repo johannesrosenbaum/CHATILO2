@@ -9,6 +9,7 @@ interface LocationContextType extends LocationState {
   updateLocation: (location: Location) => Promise<void>;
   loadNearbyChatRooms: () => Promise<void>;
   createLocalChatRooms: (location: Location) => Promise<void>;
+  setChatRoomsCallback: (callback: (rooms: ChatRoom[]) => void) => void;
 }
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
@@ -45,6 +46,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [state, dispatch] = useReducer(locationReducer, initialState);
   const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const { setLocationCallback } = useAuth();
+  const [chatRoomsCallback, setChatRoomsCallback] = useState<((rooms: ChatRoom[]) => void) | null>(null);
 
   // Register location callback with AuthContext
   useEffect(() => {
@@ -103,14 +105,18 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               timestamp: new Date(),
             };
 
+            console.log('📍 Standort erfolgreich abgerufen:', location);
             dispatch({ type: 'SET_CURRENT_LOCATION', payload: location });
             dispatch({ type: 'SET_LOADING', payload: false });
 
             // Update user location on server
             await updateLocation(location);
             
-            // Load nearby chat rooms
-            await loadNearbyChatRooms();
+            // 🔥 KORRIGIERT: Warte kurz, damit der State aktualisiert wird
+            setTimeout(async () => {
+              console.log('🔄 Lade NearbyChatRooms nach Standortaktualisierung...');
+              await loadNearbyChatRooms();
+            }, 500);
             
             resolve(location);
           } catch (error) {
@@ -192,9 +198,26 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const loadNearbyChatRooms = async () => {
+    console.log('🔍 loadNearbyChatRooms aufgerufen');
+    console.log('📍 Aktueller Standort im State:', state.currentLocation);
+    
     if (!state.currentLocation) {
-      console.log('⚠️ Kein Standort verfügbar für NearbyChatRooms');
-      return;
+      console.log('⚠️ Kein Standort verfügbar für NearbyChatRooms - warte auf Standort...');
+      
+      // 🔥 NEU: Warte auf Standort, falls er noch nicht verfügbar ist
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      while (!state.currentLocation && attempts < maxAttempts) {
+        console.log(`⏳ Warte auf Standort... Versuch ${attempts + 1}/${maxAttempts}`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
+      }
+      
+      if (!state.currentLocation) {
+        console.log('❌ Standort nach Wartezeit immer noch nicht verfügbar');
+        return;
+      }
     }
 
     try {
@@ -219,6 +242,12 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.log('📋 Räume:', chatRooms);
       
       dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: chatRooms });
+      
+      // 🔥 NEU: Sende Räume an ChatContext
+      if (chatRoomsCallback) {
+        console.log('🔄 Sende Räume an ChatContext...');
+        chatRoomsCallback(chatRooms);
+      }
       
       // If no chat rooms found, create local ones
       if (chatRooms.length === 0 && state.currentLocation) {
@@ -260,6 +289,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     updateLocation,
     loadNearbyChatRooms,
     createLocalChatRooms,
+    setChatRoomsCallback,
   };
 
   return <LocationContext.Provider value={value}>{children}</LocationContext.Provider>;

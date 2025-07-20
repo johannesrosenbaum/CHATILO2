@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { ChatState, ChatRoom, Message, SocketEvents } from '../types';
 import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
+import { useLocation } from './LocationContext';
 
 interface ChatContextType extends ChatState {
   joinChatRoom: (roomId: string) => Promise<void>;
@@ -148,6 +149,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [state, dispatch] = useReducer(chatReducer, initialState);
   const { socket } = useSocket();
   const { user } = useAuth();
+  const { setChatRoomsCallback } = useLocation();
 
   // Beim Initialisieren des ChatContext
   useEffect(() => {
@@ -156,8 +158,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     console.log('🔧 [ChatContext] User im Context:', user);
-    // Hier ggf. weitere Initialisierungen, die den User brauchen
-  }, [user]);
+    
+    // 🔥 NEU: Registriere Callback für NearbyChatRooms
+    if (setChatRoomsCallback) {
+      const handleNearbyChatRooms = (rooms: ChatRoom[]) => {
+        console.log('🎯 ChatContext: NearbyChatRooms empfangen:', rooms);
+        dispatch({ type: 'SET_CHAT_ROOMS', payload: rooms });
+      };
+      setChatRoomsCallback(handleNearbyChatRooms);
+    }
+  }, [user, setChatRoomsCallback]);
 
   const joinChatRoom = async (roomId: string) => {
     try {
