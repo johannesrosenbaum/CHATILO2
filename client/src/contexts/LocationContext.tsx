@@ -52,9 +52,18 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     if (setLocationCallback) {
       const locationWrapper = async () => {
-        await getCurrentLocation();
+        console.log('📍 AuthContext: Automatische Standortabfrage gestartet...');
+        try {
+          await getCurrentLocation();
+          console.log('✅ AuthContext: Automatische Standortabfrage erfolgreich');
+        } catch (error) {
+          console.log('❌ AuthContext: Automatische Standortabfrage fehlgeschlagen:', error);
+        }
       };
+      console.log('🔧 LocationContext: Registriere LocationCallback für AuthContext...');
       setLocationCallback(locationWrapper);
+    } else {
+      console.log('⚠️ LocationContext: setLocationCallback nicht verfügbar');
     }
   }, [setLocationCallback]);
 

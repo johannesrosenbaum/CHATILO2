@@ -29,8 +29,8 @@ import { useNavigate } from 'react-router-dom';
 import { useSocket } from '../../contexts/SocketContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocation } from '../../contexts/LocationContext';
-import { ChatRoom as TypesChatRoom } from '../../types';
-import type { ChatRoom } from '../../contexts/SocketContext';
+import { useChat } from '../../contexts/ChatContext';
+import { ChatRoom } from '../../types';
 import { theme, gradients } from '../../theme/theme';
 import FavoriteButton from '../FavoriteButton';
 
@@ -39,9 +39,9 @@ const HomeScreen: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'local' | 'events' | 'education'>('local');
 
-  // Nearby-Rooms aus dem Context holen
-  const { chatRooms, isRoomsLoading, isLocationLoading } = useSocket();
-  const { currentLocation } = useLocation();
+  // 🔥 KORRIGIERT: Verwende ChatContext für die Räume
+  const { chatRooms, isLoading: isRoomsLoading } = useChat();
+  const { currentLocation, isLoading: isLocationLoading } = useLocation();
 
   // Handler müssen vor renderTabs deklariert werden!
   const handleChatRoomClick = (room: ChatRoom) => {
@@ -75,10 +75,10 @@ const HomeScreen: React.FC = () => {
     // Basierend auf dem Typ eine passende Beschreibung generieren
     switch (room.type) {
       case 'location':
-        if (room.location?.city) {
-          return `Lokaler Chat für ${room.location.city}`;
-        } else if (room.location?.address) {
-          return `Lokaler Chat für ${room.location.address}`;
+        if (room.address?.city) {
+          return `Lokaler Chat für ${room.address.city}`;
+        } else if (room.address) {
+          return `Lokaler Chat für ${room.address.city || room.address.village || room.address.town}`;
         } else {
           return 'Lokaler Chat in deiner Nähe';
         }
@@ -92,7 +92,7 @@ const HomeScreen: React.FC = () => {
   };
 
   // Debug-Ausgabe
-  console.log('NearbyChatRooms (aus Context):', chatRooms);
+  console.log('NearbyChatRooms (aus ChatContext):', chatRooms);
   
   // Debug einzelner Räume
   if (chatRooms && chatRooms.length > 0) {
@@ -101,10 +101,11 @@ const HomeScreen: React.FC = () => {
       console.log(`   Room ${index + 1}:`, {
         name: room.name,
         type: room.type,
-        subType: room.subType,
+        subType: (room as any).subType,
         description: room.description,
         location: room.location,
-        participants: room.participants
+        address: room.address,
+        memberCount: room.memberCount
       });
     });
   }
@@ -156,7 +157,7 @@ const HomeScreen: React.FC = () => {
   const filteredRooms = chatRooms?.filter((room: ChatRoom) => {
     switch (activeTab) {
       case 'local':
-        return room.type === 'location' && room.subType !== 'regional';
+        return room.type === 'location' && (room as any).subType !== 'regional';
       case 'events':
         return room.type === 'event';
       case 'education':
@@ -169,7 +170,7 @@ const HomeScreen: React.FC = () => {
 
   // Regionalen Raum extrahieren (immer anzeigen, unabhängig vom Tab)
   const regionalRoom = chatRooms?.find((room: ChatRoom) => {
-    return room.subType === 'regional';
+    return (room as any).subType === 'regional';
   });
   // Nur die ersten 5 lokalen Räume (ohne regionalen)
   const localRooms = filteredRooms.slice(0, 5);
@@ -293,7 +294,7 @@ const HomeScreen: React.FC = () => {
                     {regionalRoom.description || 'Regionaler Chat für deine Umgebung'}
                   </Typography>
                   <Typography variant="caption">
-                    Mitglieder: {regionalRoom?.participants ?? 'n/a'}
+                    Mitglieder: {regionalRoom?.memberCount ?? 'n/a'}
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#00bcd4', fontWeight: 700 }}>
                     {(regionalRoom as any).distance ? `${(regionalRoom as any).distance.toFixed(1)} km entfernt` : 'Entfernung unbekannt'}
@@ -381,7 +382,7 @@ const HomeScreen: React.FC = () => {
                         label={
                           room.type === 'event' ? 'Event' :
                           room.type === 'global' ? 'Überregional' :
-                          room.subType === 'regional' ? 'Regional' :
+                          (room as any).subType === 'regional' ? 'Regional' :
                           'Lokal'
                         } 
                         size="small" 
@@ -398,7 +399,7 @@ const HomeScreen: React.FC = () => {
                     {getRoomDescription(room)}
                   </Typography>
                   <Typography variant="caption">
-                    Mitglieder: {room.participants ?? 'n/a'}
+                    Mitglieder: {room.memberCount ?? 'n/a'}
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#4f46e5', fontWeight: 700 }}>
                     {(room as any).distance ? `${(room as any).distance.toFixed(1)} km entfernt` : 'Entfernung unbekannt'}

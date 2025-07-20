@@ -159,12 +159,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     console.log('🔧 [ChatContext] User im Context:', user);
     
-    // 🔥 NEU: Registriere Callback für NearbyChatRooms
+    // 🔥 KORRIGIERT: Registriere Callback für NearbyChatRooms erst nach User-Loading
     if (setChatRoomsCallback) {
       const handleNearbyChatRooms = (rooms: ChatRoom[]) => {
         console.log('🎯 ChatContext: NearbyChatRooms empfangen:', rooms);
-        dispatch({ type: 'SET_CHAT_ROOMS', payload: rooms });
+        if (rooms && Array.isArray(rooms)) {
+          console.log(`✅ ChatContext: ${rooms.length} Räume im State gespeichert`);
+          dispatch({ type: 'SET_CHAT_ROOMS', payload: rooms });
+        } else {
+          console.log('⚠️ ChatContext: Ungültige Räume empfangen:', rooms);
+        }
       };
+      console.log('🔧 ChatContext: Registriere ChatRoomsCallback...');
       setChatRoomsCallback(handleNearbyChatRooms);
     }
   }, [user, setChatRoomsCallback]);
