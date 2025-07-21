@@ -108,6 +108,10 @@ router.get('/rooms/nearby', auth, async (req, res) => {
       const room = await findOrCreateChatRoom(roomData);
       rooms.push(room);
     }
+    // Debug-Logging
+    console.log('➡️ Räume, die zurückgegeben werden:', rooms);
+    console.log('➡️ Raum-Namen:', rooms.map(r => r && r.name));
+    console.log('➡️ Raum-IDs:', rooms.map(r => r && r._id));
     res.json({ rooms });
   } catch (error) {
     console.error('❌ Error fetching persistent nearby rooms:', error);
