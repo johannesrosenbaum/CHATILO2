@@ -288,6 +288,17 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
       if (response.ok && mountedRef.current) {
         const data = await response.json();
         const roomsArray = data.rooms || data.data || data || [];
+        // Debug-Logging zur Analyse der API-Antwort
+        console.log('📡 NearbyChatRooms API Response:', data);
+        console.log('✅ roomsArray isArray:', Array.isArray(roomsArray));
+        console.log('✅ roomsArray length:', roomsArray.length);
+        if (Array.isArray(roomsArray)) {
+          roomsArray.forEach((room, i) => {
+            console.log(`➡️ Room[${i}]:`, room);
+          });
+        } else {
+          console.log('❌ roomsArray ist kein Array:', roomsArray);
+        }
         setRooms(roomsArray);
         setChatRooms(roomsArray);
         console.log(`✅ ChatRooms updated mit ${roomsArray.length} Räumen`);
