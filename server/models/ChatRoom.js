@@ -16,7 +16,7 @@ const chatRoomSchema = new mongoose.Schema({
   },
   subType: {
     type: String,
-    enum: ['neighborhood', 'regional', 'city', 'event', 'school', 'university', 'festival', 'meetup', 'general'],
+    enum: ['regional', 'city', 'neighborhood', 'general', 'global'], // global ergänzt
     default: 'neighborhood'
   },
   // Erweiterte Location-Informationen
