@@ -43,7 +43,7 @@ export interface ChatRoom {
   id?: string;
   name: string;
   type?: 'location' | 'event' | 'global';
-  subType?: 'regional' | 'city' | 'neighborhood' | 'general';
+  subType?: 'regional' | 'city' | 'neighborhood' | 'general' | 'global'; // 'global' ergänzt
   participants: number;
   description?: string;
   lastMessage?: any;
@@ -286,12 +286,13 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
       console.log(`   Response ok: ${response.ok}`);
       
       if (response.ok && mountedRef.current) {
-        const nearbyRooms = await response.json();
-        setRooms(nearbyRooms);
-        setChatRooms(nearbyRooms);
-        console.log(`✅ ChatRooms updated with ${nearbyRooms.length} rooms`);
+        const data = await response.json();
+        const roomsArray = data.rooms || data.data || data || [];
+        setRooms(roomsArray);
+        setChatRooms(roomsArray);
+        console.log(`✅ ChatRooms updated mit ${roomsArray.length} Räumen`);
         // NEU: Wenn keine Räume gefunden wurden, initialisiere persistente Räume
-        if (nearbyRooms.length === 0) {
+        if (roomsArray.length === 0) {
           console.log('⚠️ Keine Nearby-Räume gefunden, initialisiere persistente Räume per POST...');
           const postResponse = await fetch(`/api/chat/rooms/nearby`, {
             method: 'POST',
@@ -302,7 +303,8 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
             body: JSON.stringify({ latitude, longitude, radius: 10000 })
           });
           if (postResponse.ok) {
-            const newRooms = await postResponse.json();
+            const postData = await postResponse.json();
+            const newRooms = postData.rooms || postData.data || postData || [];
             setRooms(newRooms);
             setChatRooms(newRooms);
             console.log(`✅ Persistente Nearby-Räume initialisiert: ${newRooms.length} Räume`);
