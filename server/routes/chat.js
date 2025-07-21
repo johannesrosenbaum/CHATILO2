@@ -86,24 +86,27 @@ router.get('/rooms/nearby', auth, async (req, res) => {
       ...regionalPlaces.map(place => generateRoomId(place.name, 'regional')),
       'global_de'
     ];
-    // Hole alle passenden Räume aus der DB
-    const rooms = await ChatRoom.find({ _id: { $in: roomIds } }).lean();
-    // Füge ggf. den Deutschland-Chat als Fallback hinzu
-    if (!rooms.some(r => r._id === 'global_de')) {
-      rooms.push({
-        _id: 'global_de',
-        id: 'global_de',
-        name: 'Deutschland-Chat',
-        type: 'global',
-        subType: 'global',
+    // Für jede roomId: existiert sie nicht, dann anlegen
+    const rooms = [];
+    for (const roomId of roomIds) {
+      let place = analysis.placesInRadius.find(p => generateRoomId(p.name, 'neighborhood') === roomId || generateRoomId(p.name, 'regional') === roomId);
+      let roomData = {
+        _id: roomId,
+        id: roomId,
+        name: place ? place.name : 'Deutschland-Chat',
+        type: roomId === 'global_de' ? 'global' : (roomId.startsWith('regional') ? 'location' : 'location'),
+        subType: roomId === 'global_de' ? 'global' : (roomId.startsWith('regional') ? 'regional' : 'neighborhood'),
         participants: 0,
-        description: 'Überregionaler Chat für ganz Deutschland',
+        description: place ? `Chat für ${place.name}` : 'Überregionaler Chat für ganz Deutschland',
+        location: place ? { latitude: place.latitude, longitude: place.longitude } : null,
+        distance: place ? place.distance : null,
         isActive: true,
-        location: null,
-        distance: null,
         createdAt: new Date(),
         lastActivity: new Date()
-      });
+      };
+      // Raum anlegen, falls nicht vorhanden
+      const room = await findOrCreateChatRoom(roomData);
+      rooms.push(room);
     }
     res.json({ rooms });
   } catch (error) {
