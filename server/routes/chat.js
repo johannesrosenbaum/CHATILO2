@@ -87,7 +87,7 @@ router.get('/rooms/nearby', auth, async (req, res) => {
       'global_de'
     ];
     // Für jede roomId: existiert sie nicht, dann anlegen
-    const rooms = [];
+    let rooms = [];
     for (const roomId of roomIds) {
       let place = analysis.placesInRadius.find(p => generateRoomId(p.name, 'neighborhood') === roomId || generateRoomId(p.name, 'regional') === roomId);
       let roomData = {
