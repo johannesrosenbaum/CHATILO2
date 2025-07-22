@@ -285,9 +285,11 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
       console.log(`🔧 DEBUG: Rooms API Response status: ${response.status}`);
       console.log(`   Response ok: ${response.ok}`);
       
+      console.log('🟡 Vor roomsArray-Analyse');
       if (response.ok && mountedRef.current) {
         const data = await response.json();
         const roomsArray = data.rooms || data.data || data || [];
+        console.log('🟡 Nach roomsArray-Analyse');
         // Debug-Logging zur Analyse der API-Antwort
         console.log('📡 NearbyChatRooms API Response:', data);
         console.log('✅ roomsArray isArray:', Array.isArray(roomsArray));
@@ -344,7 +346,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
         console.error(`❌ Nearby rooms API STILL failed after token validation:`);
         console.error(`   Status: ${response.status}`);
         console.error(`   Status Text: ${response.statusText}`);
-        
+        console.log('🟠 Fehlerfall erreicht');
         try {
           const errorText = await response.text();
           console.error(`   Response body: ${errorText}`);
@@ -356,8 +358,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
       console.error('❌ CRITICAL: Token validation or nearby rooms fetch error:');
       console.error('   Error message:', error.message);
       console.error('   Error stack:', error.stack);
+      console.log('🔴 Fehler im catch-Block!');
     } finally {
       setIsRoomsLoading(false);
+      console.log('🟢 finally-Block erreicht');
     }
   }, []);
 
