@@ -125,6 +125,14 @@ router.get('/rooms/nearby', auth, async (req, res) => {
         console.error('❌ [BACKEND-DEBUG] Fehler bei Array.from(rooms):', e);
       }
     }
+    // location-Feld für globale Räume auf null setzen, falls kein echtes Objekt
+    rooms = rooms.map(room => {
+      let location = room.location;
+      if (!location || typeof location !== 'object' || location.constructor.name !== 'Object') {
+        location = null;
+      }
+      return { ...room, location };
+    });
     res.json({ rooms });
   } catch (error) {
     console.error('❌ Error fetching persistent nearby rooms:', error);
