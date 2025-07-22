@@ -112,6 +112,19 @@ router.get('/rooms/nearby', auth, async (req, res) => {
     console.log('➡️ Räume, die zurückgegeben werden:', rooms);
     console.log('➡️ Raum-Namen:', rooms.map(r => r && r.name));
     console.log('➡️ Raum-IDs:', rooms.map(r => r && r._id));
+    console.log('🟡 [BACKEND-DEBUG] typeof rooms:', typeof rooms);
+    console.log('🟡 [BACKEND-DEBUG] Array.isArray(rooms):', Array.isArray(rooms));
+    console.log('🟡 [BACKEND-DEBUG] rooms.length:', rooms.length);
+    console.log('🟡 [BACKEND-DEBUG] Object.keys(rooms):', Object.keys(rooms));
+    console.log('🟡 [BACKEND-DEBUG] rooms.constructor:', rooms && rooms.constructor && rooms.constructor.name);
+    if (!Array.isArray(rooms)) {
+      console.error('❌ [BACKEND-DEBUG] rooms ist KEIN Array!');
+      try {
+        console.error('❌ [BACKEND-DEBUG] rooms als Array:', Array.from(rooms));
+      } catch (e) {
+        console.error('❌ [BACKEND-DEBUG] Fehler bei Array.from(rooms):', e);
+      }
+    }
     res.json({ rooms });
   } catch (error) {
     console.error('❌ Error fetching persistent nearby rooms:', error);
