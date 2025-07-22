@@ -430,4 +430,15 @@ router.get('/rooms/:roomId/messages', auth, async (req, res) => {
 
     const totalMessages = await Message.countDocuments({ chatRoom: roomId });
 
-    console.log(`
+  } catch (error) {
+    console.error('❌ Error fetching room messages:', error);
+    console.error('   Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
+  }
+});
+
+module.exports = router;
+    
