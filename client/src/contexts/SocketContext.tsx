@@ -285,28 +285,37 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
       console.log(`🔧 DEBUG: Rooms API Response status: ${response.status}`);
       console.log(`   Response ok: ${response.ok}`);
       
-      console.log('🟡 Vor roomsArray-Analyse');
+      console.log('🟡 [DEBUG] Vor roomsArray-Analyse');
       if (response.ok && mountedRef.current) {
         const data = await response.json();
-        const roomsArray = data.rooms || data.data || data || [];
-        console.log('🟡 Nach roomsArray-Analyse');
-        // Debug-Logging zur Analyse der API-Antwort
-        console.log('📡 NearbyChatRooms API Response:', data);
-        console.log('✅ roomsArray isArray:', Array.isArray(roomsArray));
-        console.log('✅ roomsArray length:', roomsArray.length);
-        if (Array.isArray(roomsArray)) {
-          roomsArray.forEach((room, i) => {
-            console.log(`➡️ Room[${i}]:`, room);
-          });
-        } else {
-          console.log('❌ roomsArray ist kein Array:', roomsArray);
+        console.log('🟡 [DEBUG] API-Response:', data);
+        const roomsRaw = data.rooms;
+        const roomsArray = roomsRaw || data.data || data || [];
+        console.log('🟡 [DEBUG] typeof roomsRaw:', typeof roomsRaw);
+        console.log('🟡 [DEBUG] Object.keys(roomsRaw):', roomsRaw && Object.keys(roomsRaw));
+        console.log('🟡 [DEBUG] roomsRaw.constructor:', roomsRaw && roomsRaw.constructor && roomsRaw.constructor.name);
+        console.log('🟡 [DEBUG] typeof roomsArray:', typeof roomsArray);
+        console.log('🟡 [DEBUG] Object.keys(roomsArray):', roomsArray && Object.keys(roomsArray));
+        console.log('🟡 [DEBUG] roomsArray.constructor:', roomsArray && roomsArray.constructor && roomsArray.constructor.name);
+        try {
+          console.log('✅ roomsArray isArray:', Array.isArray(roomsArray));
+          console.log('✅ roomsArray length:', roomsArray.length);
+          if (Array.isArray(roomsArray)) {
+            roomsArray.forEach((room, i) => {
+              console.log(`➡️ Room[${i}]:`, room);
+            });
+          } else {
+            console.log('❌ roomsArray ist kein Array:', roomsArray);
+          }
+        } catch (e) {
+          console.error('❌ Fehler bei roomsArray-Analyse:', e);
         }
         setRooms(roomsArray);
         setChatRooms(roomsArray);
         console.log(`✅ ChatRooms updated mit ${roomsArray.length} Räumen`);
         // NEU: Wenn keine Räume gefunden wurden, initialisiere persistente Räume
         if (roomsArray.length === 0) {
-          console.log('⚠️ Keine Nearby-Räume gefunden, initialisiere persistente Räume per POST...');
+          console.log('⚠️ [LOOP-DEBUG] roomsArray.length === 0 -> Initialisiere persistente Räume per POST...');
           const postResponse = await fetch(`/api/chat/rooms/nearby`, {
             method: 'POST',
             headers: {
@@ -318,6 +327,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
           if (postResponse.ok) {
             const postData = await postResponse.json();
             const newRooms = postData.rooms || postData.data || postData || [];
+            console.log('🟡 [DEBUG] POST-Response:', postData);
+            console.log('🟡 [DEBUG] typeof newRooms:', typeof newRooms);
+            console.log('🟡 [DEBUG] Object.keys(newRooms):', newRooms && Object.keys(newRooms));
+            console.log('🟡 [DEBUG] newRooms.constructor:', newRooms && newRooms.constructor && newRooms.constructor.name);
             setRooms(newRooms);
             setChatRooms(newRooms);
             console.log(`✅ Persistente Nearby-Räume initialisiert: ${newRooms.length} Räume`);
@@ -332,6 +345,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
             if (getResponse.ok) {
               const fetchedRooms = await getResponse.json();
               const roomsArray = fetchedRooms.rooms || fetchedRooms.data || fetchedRooms || [];
+              console.log('🟡 [DEBUG] GET-Response nach POST:', fetchedRooms);
+              console.log('🟡 [DEBUG] typeof roomsArray (nach POST-GET):', typeof roomsArray);
+              console.log('🟡 [DEBUG] Object.keys(roomsArray) (nach POST-GET):', roomsArray && Object.keys(roomsArray));
+              console.log('🟡 [DEBUG] roomsArray.constructor (nach POST-GET):', roomsArray && roomsArray.constructor && roomsArray.constructor.name);
               setRooms(roomsArray);
               setChatRooms(roomsArray);
               console.log(`✅ Räume nach Initialisierung per GET geladen: ${roomsArray.length} Räume`);
@@ -341,6 +358,8 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
           } else {
             console.error('❌ Fehler beim Initialisieren persistenter Räume:', postResponse.status, postResponse.statusText);
           }
+        } else {
+          console.log('🟢 [LOOP-DEBUG] roomsArray.length > 0, kein Loop!');
         }
       } else {
         console.error(`❌ Nearby rooms API STILL failed after token validation:`);
