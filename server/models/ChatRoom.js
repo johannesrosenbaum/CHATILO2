@@ -44,10 +44,10 @@ const chatRoomSchema = new mongoose.Schema({
     website: String,
     contactInfo: String
   },
-  participants: {
-    type: Number,
-    default: 0
-  },
+  participants: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   description: {
     type: String,
     default: ''
