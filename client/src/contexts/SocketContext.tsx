@@ -315,6 +315,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
         console.log('roomsArray:', roomsArray, 'length:', roomsArray.length, 'isArray:', Array.isArray(roomsArray));
         setRooms(roomsArray);
         setChatRooms(roomsArray);
+        setTimeout(() => {
+          console.log('🟢 [DEBUG] State nach setRooms:', rooms);
+          console.log('🟢 [DEBUG] State nach setChatRooms:', chatRooms);
+        }, 500);
         // NEU: Wenn keine Räume gefunden wurden, initialisiere persistente Räume
         if (roomsArray.length === 0) {
           console.log('⚠️ [LOOP-DEBUG] roomsArray.length === 0 -> Initialisiere persistente Räume per POST...');
@@ -811,6 +815,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
       isConnectingRef.current = false;
     };
   }, [user, SOCKET_URL]); // 🔥 KORRIGIERT: user statt spezifische Properties
+
+  useEffect(() => {
+    console.log('🟢 [DEBUG] chatRooms State changed:', chatRooms);
+  }, [chatRooms]);
 
   const detectLocation = useCallback(() => {
     const token = localStorage.getItem('token');
