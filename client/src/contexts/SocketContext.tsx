@@ -288,31 +288,33 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
       console.log('🟡 [DEBUG] Vor roomsArray-Analyse');
       if (response.ok && mountedRef.current) {
         const data = await response.json();
-        console.log('🟡 [DEBUG] API-Response:', data);
-        const roomsRaw = data.rooms;
-        const roomsArray = roomsRaw || data.data || data || [];
-        console.log('🟡 [DEBUG] typeof roomsRaw:', typeof roomsRaw);
-        console.log('🟡 [DEBUG] Object.keys(roomsRaw):', roomsRaw && Object.keys(roomsRaw));
-        console.log('🟡 [DEBUG] roomsRaw.constructor:', roomsRaw && roomsRaw.constructor && roomsRaw.constructor.name);
-        console.log('🟡 [DEBUG] typeof roomsArray:', typeof roomsArray);
-        console.log('🟡 [DEBUG] Object.keys(roomsArray):', roomsArray && Object.keys(roomsArray));
-        console.log('🟡 [DEBUG] roomsArray.constructor:', roomsArray && roomsArray.constructor && roomsArray.constructor.name);
-        try {
-          console.log('✅ roomsArray isArray:', Array.isArray(roomsArray));
-          console.log('✅ roomsArray length:', roomsArray.length);
-          if (Array.isArray(roomsArray)) {
-            roomsArray.forEach((room, i) => {
-              console.log(`➡️ Room[${i}]:`, room);
-            });
-          } else {
-            console.log('❌ roomsArray ist kein Array:', roomsArray);
-          }
-        } catch (e) {
-          console.error('❌ Fehler bei roomsArray-Analyse:', e);
+        // Noch robusteres Array-Handling
+        let roomsArray = [];
+        console.log(
+          'DEBUG rooms:', 
+          data.rooms, 
+          'typeof:', typeof data.rooms, 
+          'isArray:', Array.isArray(data.rooms), 
+          'constructor:', data.rooms && data.rooms.constructor && data.rooms.constructor.name
+        );
+        if (Array.isArray(data.rooms)) {
+          roomsArray = data.rooms;
+        } else if (
+          data.rooms &&
+          typeof data.rooms === 'object' &&
+          typeof data.rooms.length === 'number' &&
+          data.rooms.length > 0
+        ) {
+          // Falls es ein Array-ähnliches Objekt ist (z.B. mit length, aber kein echtes Array)
+          roomsArray = Array.from(data.rooms);
+        } else if (data.rooms && typeof data.rooms === 'object') {
+          roomsArray = Object.values(data.rooms);
+        } else {
+          roomsArray = [];
         }
+        console.log('roomsArray:', roomsArray, 'length:', roomsArray.length, 'isArray:', Array.isArray(roomsArray));
         setRooms(roomsArray);
         setChatRooms(roomsArray);
-        console.log(`✅ ChatRooms updated mit ${roomsArray.length} Räumen`);
         // NEU: Wenn keine Räume gefunden wurden, initialisiere persistente Räume
         if (roomsArray.length === 0) {
           console.log('⚠️ [LOOP-DEBUG] roomsArray.length === 0 -> Initialisiere persistente Räume per POST...');
