@@ -422,8 +422,7 @@ router.get('/rooms/:roomId/messages', auth, async (req, res) => {
   try {
     const { roomId } = req.params;
     const { page = 1, limit = 50 } = req.query;
-    
-    console.log(`📜 Fetching messages for room: ${roomId}`);
+    console.log(`📜 [DEBUG] Fetching messages for room: ${roomId}`);
     console.log(`   Page: ${page}, Limit: ${limit}`);
     console.log(`   User: ${req.user.username} (${req.user._id})`);
 
@@ -435,9 +434,17 @@ router.get('/rooms/:roomId/messages', auth, async (req, res) => {
       .lean();
 
     const totalMessages = await Message.countDocuments({ chatRoom: roomId });
+    console.log(`   [DEBUG] totalMessages: ${totalMessages}`);
+    console.log(`   [DEBUG] messages.length: ${messages.length}`);
+    if (messages.length > 0) {
+      console.log('   [DEBUG] First message:', messages[0]);
+    } else {
+      console.log('   [DEBUG] No messages found for this room.');
+    }
 
+    res.json(Array.isArray(messages) ? messages : []);
   } catch (error) {
-    console.error('❌ Error fetching room messages:', error);
+    console.error('❌ [ERROR] fetching room messages:', error);
     console.error('   Error stack:', error.stack);
     res.status(500).json({ 
       error: 'Internal server error',
