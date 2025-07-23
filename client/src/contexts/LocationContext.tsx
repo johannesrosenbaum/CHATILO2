@@ -102,7 +102,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.log('🔄 Automatisches Laden der NearbyChatRooms nach User-Login...');
       loadNearbyChatRooms(state.currentLocation);
     }
-  }, [state.currentLocation, chatRoomsCallbackRef.current]);
+    // Entfernt: chatRoomsCallbackRef.current aus der Dependency-Liste
+  }, [state.currentLocation]);
 
   const getCurrentLocation = async (): Promise<Location | null> => {
     return new Promise((resolve, reject) => {
@@ -262,7 +263,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     console.log('🔍 Lade NearbyChatRooms für Standort:', location);
     
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL || ''}/api/chat/rooms/nearby`, {
+      const response = await axios.get(`/api/chat/rooms/nearby`, {
         params: {
           latitude: location.latitude,
           longitude: location.longitude,
