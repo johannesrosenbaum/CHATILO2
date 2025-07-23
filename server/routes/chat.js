@@ -356,8 +356,14 @@ router.post('/rooms/nearby', auth, async (req, res) => {
     persistentRooms.forEach(room => {
       console.log(`   📍 ${room.name} (${room.distance}km, ${room.participants} participants) [${room._id}]`);
     });
-
-    res.json(persistentRooms);
+    // DEBUG: Response-Format explizit loggen
+    console.log('➡️ [POST] rooms (Array):', persistentRooms);
+    console.log('➡️ [POST] typeof rooms:', typeof persistentRooms);
+    console.log('➡️ [POST] Array.isArray(rooms):', Array.isArray(persistentRooms));
+    console.log('➡️ [POST] rooms.length:', persistentRooms.length);
+    console.log('➡️ [POST] Object.keys(rooms):', Object.keys(persistentRooms));
+    console.log('➡️ [POST] rooms.constructor:', persistentRooms && persistentRooms.constructor && persistentRooms.constructor.name);
+    res.json({ rooms: persistentRooms });
 
   } catch (error) {
     console.error('❌ Error finding nearby rooms:', error);
