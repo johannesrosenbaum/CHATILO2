@@ -446,5 +446,31 @@ router.get('/rooms/:roomId/messages', auth, async (req, res) => {
   }
 });
 
+// Chatraum beitreten (HTTP)
+router.post('/rooms/:roomId/join', auth, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const userId = req.user._id;
+
+    // Prüfe, ob der Raum existiert
+    const room = await ChatRoom.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Füge den User zu den Teilnehmern hinzu (optional: doppelte vermeiden)
+    if (!room.participants) room.participants = [];
+    if (!room.participants.includes(userId)) {
+      room.participants.push(userId);
+      await room.save();
+    }
+
+    res.json({ success: true, room });
+  } catch (error) {
+    console.error('❌ Error joining room:', error);
+    res.status(500).json({ error: 'Failed to join room', details: error.message });
+  }
+});
+
 module.exports = router;
     
