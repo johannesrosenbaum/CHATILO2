@@ -453,6 +453,36 @@ router.get('/rooms/:roomId/messages', auth, async (req, res) => {
   }
 });
 
+// Nachricht in einen Raum senden
+router.post('/rooms/:roomId/messages', auth, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { content, type = 'text' } = req.body;
+    const userId = req.user._id;
+
+    if (!content || !roomId) {
+      return res.status(400).json({ error: 'Content and roomId are required' });
+    }
+
+    // Erstelle die Nachricht
+    const message = await Message.create({
+      content,
+      type,
+      sender: userId,
+      chatRoom: roomId,
+      createdAt: new Date()
+    });
+
+    // Optional: Nachricht mit Userdaten zurückgeben
+    await message.populate('sender', 'username avatar');
+
+    res.json({ message });
+  } catch (error) {
+    console.error('❌ Error sending message:', error);
+    res.status(500).json({ error: 'Failed to send message', details: error.message });
+  }
+});
+
 // Chatraum beitreten (HTTP)
 router.post('/rooms/:roomId/join', auth, async (req, res) => {
   try {
