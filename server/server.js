@@ -13,6 +13,7 @@ const chatRoutes = require('./routes/chat');
 const roomRoutes = require('./routes/rooms'); // KORRIGIERT: Dieser Import sollte funktionieren
 const locationRoutes = require('./routes/location');
 const adminRoutes = require('./routes/admin');
+const adminStatsRoutes = require('./routes/adminStats');
 const healthRoutes = require('./routes/health');
 const socketHandler = require('./sockets/socketHandler');
 
@@ -61,6 +62,43 @@ console.log('✅ All modules imported successfully');
 // Express App Setup
 const app = express();
 const server = http.createServer(app);
+// Admin-Login und Dashboard
+const bodyParser = require('body-parser');
+const session = require('express-session');
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(session({ secret: 'adminSecret', resave: false, saveUninitialized: true }));
+
+const ADMIN_USER = 'root';
+const ADMIN_PASS = 'Neogrcz8+';
+
+app.get('/admin/login', (req, res) => {
+  res.send(`
+    <form method="POST" action="/admin/login">
+      <input name="username" placeholder="Username" required />
+      <input name="password" type="password" placeholder="Password" required />
+      <button type="submit">Login</button>
+    </form>
+  `);
+});
+
+app.post('/admin/login', (req, res) => {
+  const { username, password } = req.body;
+  if (username === ADMIN_USER && password === ADMIN_PASS) {
+    req.session.admin = true;
+    res.redirect('/admin');
+  } else {
+    res.send('Login fehlgeschlagen!');
+  }
+});
+
+app.use('/admin', (req, res, next) => {
+  if (!req.session.admin && req.path !== '/login') return res.redirect('/admin/login');
+  next();
+});
+
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin-dashboard.html'));
+});
 
 console.log('🔧 DEBUG: Express app and HTTP server created');
 
@@ -157,6 +195,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/location', locationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin', adminStatsRoutes);
 app.use('/api/ai', require('./routes/ai'));
 
 // Debug route information
