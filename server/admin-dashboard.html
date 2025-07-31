@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Chatilo Admin Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    h1 { color: #2c3e50; }
+    .stats { margin-bottom: 30px; }
+    .log { background: #f4f4f4; padding: 20px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Chatilo Admin Dashboard</h1>
+  <div class="stats" id="stats">Lade Statistiken...</div>
+  <h2>Funktionscheck Log</h2>
+  <pre class="log" id="log">Lade Log...</pre>
+  <script>
+    async function loadStats() {
+      const res = await fetch('/api/admin/stats');
+      const stats = await res.json();
+      document.getElementById('stats').innerHTML = `
+        <b>User:</b> ${stats.userCount}<br>
+        <b>Chatrooms:</b> ${stats.chatRoomCount}<br>
+        <b>Nachrichten:</b> ${stats.messageCount}<br>
+        <b>Aktive Räume:</b> ${stats.activeRooms}
+      `;
+    }
+    async function loadLog() {
+      // Hier könnte ein Endpunkt für das Log angebunden werden
+      document.getElementById('log').textContent = 'Noch kein Log verfügbar.';
+    }
+    loadStats();
+    loadLog();
+  </script>
+</body>
+</html>
