@@ -39,7 +39,7 @@ import {
 import { TransitionProps } from '@mui/material/transitions';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
-import axios from 'axios';
+import api from '../../services/api';
 
 const Transition = React.forwardRef<unknown, TransitionProps & {
   children: React.ReactElement;
@@ -101,7 +101,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
   const fetchImages = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/chat/rooms/${roomId}/gallery`);
+      const response = await api.get(`/api/chat/rooms/${roomId}/gallery`);
       // Sort by creation date (newest first)
       const sortedImages = response.data.sort((a: GalleryImage, b: GalleryImage) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -122,7 +122,7 @@ const GalleryModal: React.FC<GalleryModalProps> = ({
 
   const handleLike = async (imageId: string) => {
     try {
-      await axios.post(`/api/chat/gallery/${imageId}/like`);
+      await api.post(`/api/chat/gallery/${imageId}/like`);
       setImages(prev => 
         prev.map(img => {
           if (img._id === imageId) {

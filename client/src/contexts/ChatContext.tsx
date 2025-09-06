@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import axios from 'axios';
+import api from '../services/api';
 import toast from 'react-hot-toast';
 import { ChatState, ChatRoom, Message, SocketEvents } from '../types';
 import { useSocket } from './SocketContext';
@@ -308,7 +308,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       
       // Neuer Raum - API-Call notwendig
       console.log('🔧 [joinChatRoom] Neuer Raum, führe API-Call durch');
-      const response = await axios.post(`/api/chat/rooms/${roomId}/join`);
+      const response = await api.post(`/api/chat/rooms/${roomId}/join`);
       console.log('🔧 [joinChatRoom] API-Response:', response.data);
       
       if (!response.data.success || !response.data.room) {
@@ -371,12 +371,12 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         formData.append('type', type);
         formData.append('content', content);
         formData.append('roomId', state.activeChatRoom._id);
-        response = await axios.post('/api/chat/upload/media', formData, {
+        response = await api.post('/api/chat/upload/media', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       } else {
         // Textnachricht
-        response = await axios.post(
+        response = await api.post(
           `/api/chat/rooms/${state.activeChatRoom._id}/messages`,
           { content, type },
           { headers: { 'Content-Type': 'application/json' } }
@@ -409,7 +409,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
   const likeMessage = async (messageId: string) => {
     try {
-      await axios.post(`/api/chat/messages/${messageId}/like`);
+      await api.post(`/api/chat/messages/${messageId}/like`);
       
       if (socket) {
         socket.emit('message:like', messageId);
@@ -422,7 +422,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
   const unlikeMessage = async (messageId: string) => {
     try {
-      await axios.delete(`/api/chat/messages/${messageId}/like`);
+      await api.delete(`/api/chat/messages/${messageId}/like`);
       
       if (socket) {
         socket.emit('message:unlike', messageId);
@@ -435,7 +435,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
   const editMessage = async (messageId: string, content: string) => {
     try {
-      await axios.put(`/api/chat/messages/${messageId}`, { content });
+      await api.put(`/api/chat/messages/${messageId}`, { content });
       
       if (socket) {
         socket.emit('message:edit', { messageId, content });
@@ -448,7 +448,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
   const deleteMessage = async (messageId: string) => {
     try {
-      await axios.delete(`/api/chat/messages/${messageId}`);
+      await api.delete(`/api/chat/messages/${messageId}`);
       
       if (socket) {
         socket.emit('message:delete', messageId);
@@ -475,7 +475,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         },
       });
 
-      const response = await axios.get(`/api/chat/rooms/${roomId}/messages?page=${page}&limit=20`);
+      const response = await api.get(`/api/chat/rooms/${roomId}/messages?page=${page}&limit=20`);
       const { messages, pagination } = response.data;
       
       if (page === 1) {
@@ -538,7 +538,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       
-      const response = await axios.get('/api/chat/rooms');
+      const response = await api.get('/api/chat/rooms');
       const chatRooms = response.data.data;
       
       dispatch({ type: 'SET_CHAT_ROOMS', payload: chatRooms });

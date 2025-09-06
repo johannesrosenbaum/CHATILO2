@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import toast from 'react-hot-toast';
 import { User, AuthState, UpdateProfileData } from '../types';
 
@@ -64,21 +64,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [state, dispatch] = useReducer(authReducer, initialState);
   const [locationCallback, setLocationCallback] = useState<(() => Promise<void>) | null>(null);
 
-  // Set up axios defaults
-  useEffect(() => {
-    if (state.token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${state.token}`;
-    } else {
-      delete axios.defaults.headers.common['Authorization'];
-    }
-  }, [state.token]);
-
   // Check if user is authenticated on mount
   useEffect(() => {
     const checkAuth = async () => {
       if (state.token) {
         try {
-          const response = await axios.get('/api/auth/me');
+          const response = await api.get('/api/auth/me');
           console.log('🔧 Auth check response:', response.data);
           
           // Handle both response structures
@@ -103,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_ERROR', payload: null });
 
-      const response = await axios.post('/api/auth/login', { email, password });
+      const response = await api.post('/api/auth/login', { email, password });
       console.log('🔧 AuthContext: Login response received:', response.data);
       
       // Korrigierte Struktur - direkt aus response.data
@@ -142,7 +133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_ERROR', payload: null });
 
-      const response = await axios.post('/api/auth/register', {
+      const response = await api.post('/api/auth/register', {
         email,
         password,
         username,
@@ -192,7 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const avatarFormData = new FormData();
         avatarFormData.append('avatar', data.profileImage);
         
-        const avatarResponse = await axios.post('/api/auth/avatar', avatarFormData, {
+        const avatarResponse = await api.post('/api/auth/avatar', avatarFormData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
@@ -218,7 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profileData.preferences) updateData.preferences = profileData.preferences;
 
       if (Object.keys(updateData).length > 0) {
-        const response = await axios.put('/api/auth/me', updateData);
+        const response = await api.put('/api/auth/me', updateData);
         console.log('✅ Profile updated successfully:', response.data);
         
         // Update user with new data
@@ -242,7 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshUser = async () => {
     try {
-      const response = await axios.get('/api/auth/me');
+      const response = await api.get('/api/auth/me');
       console.log('🔧 Refresh user response:', response.data);
       
       // Handle both response structures

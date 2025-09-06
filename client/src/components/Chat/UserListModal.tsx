@@ -26,7 +26,7 @@ import {
 import { TransitionProps } from '@mui/material/transitions';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
-import axios from 'axios';
+import api from '../../services/api';
 
 const Transition = React.forwardRef<unknown, TransitionProps & {
   children: React.ReactElement;
@@ -70,7 +70,7 @@ const UserListModal: React.FC<UserListModalProps> = ({
   const fetchRoomUsers = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/chat/rooms/${roomId}/users`);
+      const response = await api.get(`/api/chat/rooms/${roomId}/users`);
       // Sort users: online first, then by join date
       const sortedUsers = response.data.sort((a: User, b: User) => {
         if (a.isActive && !b.isActive) return -1;

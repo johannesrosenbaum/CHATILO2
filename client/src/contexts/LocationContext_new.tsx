@@ -190,7 +190,7 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
 
   const updateLocation = async (location: Location) => {
     try {
-      await axios.put('http://localhost:1113/api/location', {
+      await axios.put(`${process.env.REACT_APP_API_URL}/api/location`, {
         latitude: location.latitude,
         longitude: location.longitude,
         address: location.address,
@@ -208,7 +208,7 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
     console.log('🔍 Lade alle Benutzer-Chaträume...');
     
     try {
-      const response = await axios.get('http://localhost:1113/api/chat/rooms/user', {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/chat/rooms/user`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -233,7 +233,7 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
 
   const createLocalChatRooms = async (location: Location) => {
     try {
-      const response = await axios.post('http://localhost:1113/api/chat/rooms/initialize-local', {
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/chat/rooms/initialize-local`, {
         latitude: location.latitude,
         longitude: location.longitude,
         address: location.address,

@@ -22,7 +22,7 @@ import {
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
-import axios from 'axios';
+import api from '../../services/api';
 
 interface GalleryImage {
   _id: string;
@@ -82,7 +82,7 @@ function CollageGallery({
     setError(null);
     setLoading(true);
     try {
-      const response = await axios.get(`/api/chat/rooms/${roomId}/gallery`);
+      const response = await api.get(`/api/chat/rooms/${roomId}/gallery`);
       if (!isMountedRef.current) return;
 
       // DEBUG: log raw API response for troubleshooting
@@ -160,7 +160,7 @@ function CollageGallery({
 
   const handleLike = async (imageId: string) => {
     try {
-      await axios.post(`/api/chat/gallery/${imageId}/like`);
+      await api.post(`/api/chat/gallery/${imageId}/like`);
       setImages(prev => 
         prev.map(img => {
           if (img._id === imageId) {

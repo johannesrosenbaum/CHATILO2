@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, useState, useRef } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import toast from 'react-hot-toast';
 import { LocationState, Location, ChatRoom } from '../types';
 import { useAuth } from './AuthContext';
@@ -190,14 +190,10 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
 
   const updateLocation = async (location: Location) => {
     try {
-      await axios.put('http://localhost:1113/api/location', {
+      await api.put('/api/location', {
         latitude: location.latitude,
         longitude: location.longitude,
         address: location.address,
-      }, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
       });
     } catch (error: any) {
       console.error('Error updating location on server:', error);
@@ -208,11 +204,7 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
     console.log('🔍 Lade alle Benutzer-Chaträume...');
     
     try {
-      const response = await axios.get('http://localhost:1113/api/chat/rooms/user', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await api.get('/api/chat/rooms/user');
       
       if (response.data.success && response.data.rooms) {
         const chatRooms = response.data.rooms;
@@ -233,14 +225,10 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
 
   const createLocalChatRooms = async (location: Location) => {
     try {
-      const response = await axios.post('http://localhost:1113/api/chat/rooms/initialize-local', {
+      const response = await api.post('/api/chat/rooms/initialize-local', {
         latitude: location.latitude,
         longitude: location.longitude,
         address: location.address,
-      }, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
       });
 
       if (response.data.success) {
