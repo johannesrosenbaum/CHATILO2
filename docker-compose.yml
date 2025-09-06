@@ -95,6 +95,18 @@ services:
     networks:
       - chatilo-network
 
+  # Admin Frontend (Dashboard)
+  admin-frontend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.admin
+    container_name: chatilo-admin-frontend
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    networks:
+      - chatilo-network
+
 volumes:
   mongodb_data:
     driver: local

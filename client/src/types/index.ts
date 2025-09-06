@@ -250,11 +250,19 @@ export interface ChatState {
   isLoading: boolean;
   error: string | null;
   typingUsers: Record<string, string[]>; // chatRoomId -> userIds
+  favoriteRooms: string[]; // ⭐ Favoriten-RoomIDs
+  messagesPagination: Record<string, { // 📄 Pagination pro Raum
+    currentPage: number;
+    hasMore: boolean;
+    isLoading: boolean;
+    totalMessages: number;
+  }>;
 }
 
 export interface LocationState {
   currentLocation: Location | null;
   nearbyChatRooms: ChatRoom[];
+  userLocations?: Location[]; // Gespeicherte Benutzer-Standorte
   isLoading: boolean;
   error: string | null;
 }

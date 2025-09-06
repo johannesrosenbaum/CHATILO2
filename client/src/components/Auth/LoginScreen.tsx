@@ -189,7 +189,20 @@ const LoginScreen: React.FC = () => {
                   value={formData.email}
                   onChange={handleInputChange('email')}
                   required
-                  sx={{ mb: 3 }}
+                  sx={{ 
+                    mb: 3,
+                    '& .MuiInputLabel-root': {
+                      transform: 'translate(14px, -9px) scale(0.75)', // Label höher positionieren
+                      background: 'rgba(30, 30, 30, 0.9)', // Hintergrund für bessere Lesbarkeit
+                      px: 1, // Padding links/rechts
+                      borderRadius: 1,
+                      color: 'rgba(255, 255, 255, 0.9)', // Hellere Schriftfarbe
+                    },
+                    '& .MuiInputLabel-shrink': {
+                      transform: 'translate(14px, -9px) scale(0.75)', // Auch beim shrink state
+                      color: 'rgba(255, 255, 255, 0.9)', // Hellere Schriftfarbe auch beim shrink state
+                    }
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -212,7 +225,20 @@ const LoginScreen: React.FC = () => {
                   value={formData.password}
                   onChange={handleInputChange('password')}
                   required
-                  sx={{ mb: 3 }}
+                  sx={{ 
+                    mb: 3,
+                    '& .MuiInputLabel-root': {
+                      transform: 'translate(14px, -9px) scale(0.75)', // Label höher positionieren
+                      background: 'rgba(30, 30, 30, 0.9)', // Hintergrund für bessere Lesbarkeit
+                      px: 1, // Padding links/rechts
+                      borderRadius: 1,
+                      color: 'rgba(255, 255, 255, 0.9)', // Hellere Schriftfarbe
+                    },
+                    '& .MuiInputLabel-shrink': {
+                      transform: 'translate(14px, -9px) scale(0.75)', // Auch beim shrink state
+                      color: 'rgba(255, 255, 255, 0.9)', // Hellere Schriftfarbe auch beim shrink state
+                    }
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">

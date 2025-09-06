@@ -15,7 +15,7 @@ const User = mongoose.model('User', userSchema);
 async function createTestUser() {
   try {
     console.log('🔌 Connecting to MongoDB...');
-    await mongoose.connect('mongodb://localhost:27017/chatilo');
+    await mongoose.connect('mongodb://admin:chatilo123@localhost:27017/chatilo?authSource=admin');
     console.log('✅ Connected to database');
 
     // Check if test user already exists

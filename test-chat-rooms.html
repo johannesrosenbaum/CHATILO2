@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Rooms API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff; }
+        .error { border-left-color: #dc3545; background: #f8d7da; }
+        .success { border-left-color: #28a745; background: #d4edda; }
+        pre { background: #f1f1f1; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        input[type="text"], input[type="password"] { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 3px; width: 200px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 CHATILO Chat Rooms API Test</h1>
+        
+        <h2>1. Benutzer Login</h2>
+        <input type="text" id="username" placeholder="Benutzername" value="testuser">
+        <input type="password" id="password" placeholder="Passwort" value="test123">
+        <button onclick="login()">Login</button>
+        
+        <h2>2. Chat Rooms laden</h2>
+        <button onclick="loadChatRooms()">Chat Rooms laden</button>
+        <button onclick="initializeLocalRooms()">Lokale Räume initialisieren</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let currentToken = null;
+        
+        function addResult(content, type = 'result') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = content;
+            document.getElementById('results').appendChild(div);
+        }
+        
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('http://localhost:1113/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.token) {
+                    currentToken = data.token;
+                    addResult(`<strong>✅ Login erfolgreich!</strong><br>Token: ${data.token.substring(0, 50)}...`, 'success');
+                } else {
+                    addResult(`<strong>❌ Login fehlgeschlagen:</strong><br>${data.message}`, 'error');
+                }
+            } catch (error) {
+                addResult(`<strong>❌ Login Fehler:</strong><br>${error.message}`, 'error');
+            }
+        }
+        
+        async function loadChatRooms() {
+            if (!currentToken) {
+                addResult('<strong>❌ Kein Token!</strong><br>Bitte zuerst einloggen.', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:1113/api/chat/rooms/user', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    addResult(`<strong>✅ Chat Rooms geladen!</strong><br>
+                        Anzahl: ${data.count}<br>
+                        <pre>${JSON.stringify(data.rooms, null, 2)}</pre>`, 'success');
+                } else {
+                    addResult(`<strong>❌ Fehler beim Laden:</strong><br>${data.error || data.message}`, 'error');
+                }
+            } catch (error) {
+                addResult(`<strong>❌ API Fehler:</strong><br>${error.message}`, 'error');
+            }
+        }
+        
+        async function initializeLocalRooms() {
+            if (!currentToken) {
+                addResult('<strong>❌ Kein Token!</strong><br>Bitte zuerst einloggen.', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:1113/api/chat/rooms/initialize-local', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        latitude: 50.3569,
+                        longitude: 7.5890,
+                        address: "Koblenz, Deutschland"
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    addResult(`<strong>✅ Lokale Räume initialisiert!</strong><br>
+                        Erstellt: ${data.created}<br>
+                        Bestehend: ${data.existing}<br>
+                        Gesamt: ${data.total}`, 'success');
+                } else {
+                    addResult(`<strong>❌ Fehler bei Initialisierung:</strong><br>${data.error || data.message}`, 'error');
+                }
+            } catch (error) {
+                addResult(`<strong>❌ API Fehler:</strong><br>${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-Login versuchen
+        window.onload = function() {
+            addResult('<strong>🚀 Test-Seite geladen</strong><br>Versuche Login mit Standard-Credentials...', 'result');
+            setTimeout(login, 1000);
+        };
+    </script>
+</body>
+</html>

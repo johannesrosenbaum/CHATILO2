@@ -116,7 +116,7 @@ interface SocketProviderProps {
   roomId?: string;
 }
 
-export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId }) => {
+export const SocketProvider = ({ children, roomId }: SocketProviderProps) => {
   console.log('🔧 STABLE: SocketProvider render with roomId (PROP!):', roomId);
   console.log('🔧 STABLE: SocketProvider roomId type:', typeof roomId);
   console.log('🔧 STABLE: SocketProvider roomId length:', roomId?.length);
@@ -145,8 +145,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isRoomsLoading, setIsRoomsLoading] = useState<boolean>(false);
 
-  // Dynamische Socket-URL basierend auf aktueller Domain
-  const SOCKET_URL = window.location.origin;
+  // Socket-URL für Entwicklung und Produktion
+  const SOCKET_URL = process.env.NODE_ENV === 'development' 
+    ? 'http://localhost:1113'  // Server läuft auf Port 1113
+    : window.location.origin;   // In Produktion gleiches Origin
   console.log('🌐 [DEBUG] SOCKET_URL:', SOCKET_URL);
 
   // API-URL immer relativ
@@ -814,7 +816,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children, roomId
       }
       isConnectingRef.current = false;
     };
-  }, [user, SOCKET_URL]); // 🔥 KORRIGIERT: user statt spezifische Properties
+  }, [user?._id, user?.id, SOCKET_URL]); // 🔥 FIX: Nur bei user ID Änderung, nicht bei ganzen user object updates!
 
   useEffect(() => {
     console.log('🟢 [DEBUG] chatRooms State changed:', chatRooms);

@@ -31,10 +31,12 @@ import {
   MyLocation,
   Add,
   Schedule,
-  EventAvailable
+  EventAvailable,
+  Star as StarIcon
 } from '@mui/icons-material';
 import { useSocket } from '../contexts/SocketContext';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useChat } from '../contexts/ChatContext';
 import FavoriteButton from './FavoriteButton';
 
 interface ChatRoom {
@@ -93,6 +95,7 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
     createEventRoom,
     isRoomsLoading
   } = useSocket();
+  const { getFavoriteRoomsData } = useChat();
   const [createEventOpen, setCreateEventOpen] = useState(false);
   const [eventName, setEventName] = useState('');
   const [eventDescription, setEventDescription] = useState('');
@@ -173,6 +176,10 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
   // Verwende rooms ODER chatRooms - welche auch immer gefüllt sind
   const displayRooms = chatRooms;
   console.log('🟣 [ChatRoomList] displayRooms:', displayRooms);
+
+  // ⭐ FAVORITEN-DATEN LADEN
+  const favoriteRoomsData = getFavoriteRoomsData();
+  console.log('⭐ [ChatRoomList] Favoriten-Räume:', favoriteRoomsData);
 
   // DEBUG: Manual reload and state info
   // This will render a debug button at the top for manual reload and state inspection
@@ -347,6 +354,60 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
             </Tooltip>
           )}
         </Box>
+
+        {/* ⭐ FAVORITEN-SHORTCUTS SEKTION */}
+        {favoriteRoomsData.length > 0 && (
+          <Box sx={{ mt: 2, pb: 2, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <Typography variant="subtitle2" sx={{ 
+              mb: 1, 
+              color: '#ffc107',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
+            }}>
+              <StarIcon fontSize="small" />
+              Favoriten
+            </Typography>
+            <Box sx={{ 
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: 1,
+              maxHeight: '120px',
+              overflowY: 'auto',
+              '&::-webkit-scrollbar': {
+                width: '4px',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                backgroundColor: 'rgba(255, 193, 7, 0.3)',
+                borderRadius: '2px',
+              },
+            }}>
+              {favoriteRoomsData.map((room) => (
+                <Chip
+                  key={room._id}
+                  label={room.name}
+                  onClick={() => handleRoomClick(room._id)}
+                  sx={{
+                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                    color: '#ffc107',
+                    borderColor: '#ffc107',
+                    fontSize: '0.75rem',
+                    height: '28px',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 193, 7, 0.2)',
+                      transform: 'translateY(-1px)',
+                    },
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer',
+                  }}
+                  variant="outlined"
+                  size="small"
+                />
+              ))}
+            </Box>
+          </Box>
+        )}
 
         {/* Loading/Error State for User */}
         {authLoading && (

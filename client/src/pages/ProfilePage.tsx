@@ -26,20 +26,19 @@ import { styled } from '@mui/material/styles';
 import { useAuth } from '../contexts/AuthContext';
 
 // Styled Components
-const GradientBackground = styled(Box)(({ theme }) => ({
+const WhiteBackground = styled(Box)(({ theme }) => ({
   minHeight: '100vh',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: '#ffffff',
   padding: theme.spacing(2),
 }));
 
-const GlassCard = styled(Paper)(({ theme }) => ({
-  background: 'rgba(255, 255, 255, 0.95)',
-  backdropFilter: 'blur(20px)',
-  borderRadius: 20,
-  border: '2px solid rgba(255, 255, 255, 0.3)',
+const CICard = styled(Paper)(({ theme }) => ({
+  background: '#ffffff',
+  borderRadius: 16,
+  border: '1px solid rgba(99, 102, 241, 0.1)',
   padding: theme.spacing(4),
   color: theme.palette.text.primary,
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+  boxShadow: '0 4px 16px rgba(99, 102, 241, 0.1)',
 }));
 
 const ChatiloIcon = styled(Box)(({ theme }) => ({
@@ -64,14 +63,15 @@ const ProfileAvatar = styled(Avatar)(({ theme }) => ({
   width: 120,
   height: 120,
   marginBottom: theme.spacing(2),
-  border: '4px solid rgba(255, 255, 255, 0.9)',
-  boxShadow: '0 8px 25px rgba(102, 126, 234, 0.3)',
+  border: '3px solid rgba(99, 102, 241, 0.2)',
+  boxShadow: '0 4px 16px rgba(99, 102, 241, 0.15)',
   cursor: 'pointer',
   position: 'relative',
   transition: 'all 0.3s ease',
   '&:hover': {
     transform: 'scale(1.05)',
-    boxShadow: '0 12px 35px rgba(102, 126, 234, 0.5)',
+    boxShadow: '0 6px 24px rgba(99, 102, 241, 0.25)',
+    border: '3px solid rgba(99, 102, 241, 0.3)',
   }
 }));
 
@@ -95,33 +95,36 @@ const AvatarOverlay = styled(Box)(({ theme }) => ({
 
 const BioTextField = styled(TextField)(({ theme }) => ({
   '& .MuiInputBase-root': {
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
   },
   '& .MuiOutlinedInput-root': {
+    '& fieldset': {
+      borderColor: 'rgba(99, 102, 241, 0.2)',
+    },
     '&:hover fieldset': {
       borderColor: '#667eea',
     },
     '&.Mui-focused fieldset': {
       borderColor: '#667eea',
+      borderWidth: '2px',
     },
   }
 }));
 
-const ProfilePage: React.FC = () => {
+const ProfilePage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [isEditing, setIsEditing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [uploading, setUploading] = useState(false);
   
-  const [editData, setEditData] = useState({
+  const [profileData, setProfileData] = useState({
     username: user?.username || '',
     email: user?.email || '',
-    bio: user?.bio || '' // BIO HINZUGEFÜGT
+    bio: user?.bio || ''
   });
 
   // Avatar Upload Handler
@@ -205,31 +208,16 @@ const ProfilePage: React.FC = () => {
     fileInputRef.current?.click();
   };
 
-  const handleEdit = () => {
-    setIsEditing(true);
-  };
-
-  const handleCancel = () => {
-    setIsEditing(false);
-    setEditData({
-      username: user?.username || '',
-      email: user?.email || '',
-      bio: user?.bio || ''
-    });
-    setSelectedImage(null);
-  };
-
   const handleSave = async () => {
     try {
       // TODO: API-Call zum Speichern der Profildaten
-      console.log('Speichere Profildaten:', editData, selectedImage);
+      console.log('Speichere Profildaten:', profileData, selectedImage);
       
       setSnackbar({ 
         open: true, 
         message: 'Profil erfolgreich aktualisiert!', 
         severity: 'success' 
       });
-      setIsEditing(false);
     } catch (error) {
       setSnackbar({ 
         open: true, 
@@ -240,71 +228,45 @@ const ProfilePage: React.FC = () => {
   };
 
   return (
-    <GradientBackground>
+    <WhiteBackground>
       <Container maxWidth="md">
-        <GlassCard elevation={0}>
+        <CICard elevation={0}>
           {/* ZURÜCK BUTTON */}
           <Box sx={{ mb: 3 }}>
             <Button
               startIcon={<ArrowBack />}
-              onClick={() => navigate('/chat')}
+              onClick={() => navigate('/')}
               sx={{
-                background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(255, 255, 255, 0.1) 100%)',
-                color: 'primary.main',
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%)',
+                color: '#6366f1',
                 fontWeight: 600,
-                borderRadius: 3,
+                borderRadius: 2,
                 px: 3,
                 py: 1.5,
+                border: '1px solid rgba(99, 102, 241, 0.2)',
                 '&:hover': {
-                  background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(255, 255, 255, 0.2) 100%)',
-                  transform: 'translateX(-5px)',
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(236, 72, 153, 0.15) 100%)',
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  transform: 'translateX(-2px)',
                 },
-                transition: 'all 0.3s ease'
+                transition: 'all 0.2s ease'
               }}
             >
-              Zurück zum Chat
+              Zurück zur Startseite
             </Button>
           </Box>
 
-          {/* PROFIL HEADER */}
-          <Box textAlign="center" mb={4}>
-            <ChatiloIcon>
-              <ChatiloSymbol>C</ChatiloSymbol>
-            </ChatiloIcon>
-            
-            <Typography 
-              variant="h3"
-              sx={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                fontWeight: 'bold',
-                textAlign: 'center',
-                marginBottom: 1,
-              }}
-            >
-              Mein Profil
-            </Typography>
-            
-            <Typography 
-              variant="h6" 
-              color="text.secondary" 
-              sx={{ fontWeight: 500, opacity: 0.8 }}
-            >
-              Verwalte deine CHATILO Einstellungen
-            </Typography>
-          </Box>
-
           {/* Hidden File Input */}
-          <input
+          <Box
+            component="input"
             type="file"
             ref={fileInputRef}
-            style={{ display: 'none' }}
+            sx={{ display: 'none' }}
             accept="image/*"
             onChange={handleImageUpload}
           />
           
-          {/* Profile Picture & Info */}
+          {/* Profile Picture & Info - DIREKT AN DER SPITZE */}
           <Box display="flex" flexDirection="column" alignItems="center" mb={4}>
             <Box sx={{ position: 'relative' }}>
               <ProfileAvatar
@@ -359,13 +321,12 @@ const ProfilePage: React.FC = () => {
               <TextField
                 fullWidth
                 label="Benutzername"
-                value={isEditing ? editData.username : user?.username || ''}
-                onChange={(e) => setEditData({ ...editData, username: e.target.value })}
-                disabled={!isEditing}
-                variant={isEditing ? "outlined" : "filled"}
+                value={profileData.username}
+                onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
+                variant="outlined"
                 sx={{
                   '& .MuiInputBase-root': {
-                    backgroundColor: isEditing ? 'background.paper' : 'rgba(0,0,0,0.05)'
+                    backgroundColor: 'background.paper'
                   }
                 }}
               />
@@ -375,13 +336,12 @@ const ProfilePage: React.FC = () => {
               <TextField
                 fullWidth
                 label="E-Mail"
-                value={isEditing ? editData.email : user?.email || ''}
-                onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-                disabled={!isEditing}
-                variant={isEditing ? "outlined" : "filled"}
+                value={profileData.email}
+                onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                variant="outlined"
                 sx={{
                   '& .MuiInputBase-root': {
-                    backgroundColor: isEditing ? 'background.paper' : 'rgba(0,0,0,0.05)'
+                    backgroundColor: 'background.paper'
                   }
                 }}
               />
@@ -395,18 +355,17 @@ const ProfilePage: React.FC = () => {
                 rows={3}
                 label="Über mich"
                 placeholder="Erzähle etwas über dich... (max. 200 Zeichen)"
-                value={isEditing ? editData.bio : user?.bio || ''}
+                value={profileData.bio}
                 onChange={(e) => {
                   if (e.target.value.length <= 200) {
-                    setEditData({ ...editData, bio: e.target.value });
+                    setProfileData({ ...profileData, bio: e.target.value });
                   }
                 }}
-                disabled={!isEditing}
-                variant={isEditing ? "outlined" : "filled"}
-                helperText={isEditing ? `${editData.bio.length}/200 Zeichen` : ''}
+                variant="outlined"
+                helperText={`${profileData.bio.length}/200 Zeichen`}
                 sx={{
                   '& .MuiInputBase-root': {
-                    backgroundColor: isEditing ? 'background.paper' : 'rgba(0,0,0,0.05)'
+                    backgroundColor: 'background.paper'
                   }
                 }}
               />
@@ -415,68 +374,30 @@ const ProfilePage: React.FC = () => {
 
           <Divider sx={{ mb: 3 }} />
 
-          {/* SETTINGS ENTFERNT - nur Edit/Save Buttons */}
+          {/* SAVE BUTTON - immer verfügbar */}
           <Box display="flex" justifyContent="center" gap={2}>
-            {!isEditing ? (
-              <Button
-                startIcon={<Edit />}
-                onClick={handleEdit}
-                variant="contained"
-                sx={{
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  borderRadius: 3,
-                  px: 4,
-                  py: 1.5,
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
-                    transform: 'translateY(-2px)',
-                  }
-                }}
-              >
-                Profil bearbeiten
-              </Button>
-            ) : (
-              <>
-                <Button
-                  startIcon={<Save />}
-                  onClick={handleSave}
-                  variant="contained"
-                  sx={{
-                    background: 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)',
-                    borderRadius: 3,
-                    px: 4,
-                    py: 1.5,
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #22c55e 0%, #4ade80 100%)',
-                      transform: 'translateY(-2px)',
-                    }
-                  }}
-                >
-                  Speichern
-                </Button>
-                <Button
-                  startIcon={<Cancel />}
-                  onClick={handleCancel}
-                  variant="outlined"
-                  sx={{
-                    borderColor: '#ef4444',
-                    color: '#ef4444',
-                    borderRadius: 3,
-                    px: 4,
-                    py: 1.5,
-                    '&:hover': {
-                      backgroundColor: '#ef4444',
-                      color: 'white',
-                      transform: 'translateY(-2px)',
-                    }
-                  }}
-                >
-                  Abbrechen
-                </Button>
-              </>
-            )}
+            <Button
+              startIcon={<Save />}
+              onClick={handleSave}
+              variant="contained"
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: 2,
+                px: 4,
+                py: 1.5,
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  transform: 'translateY(-1px)',
+                  boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)',
+                },
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Profil speichern
+            </Button>
           </Box>
-        </GlassCard>
+        </CICard>
       </Container>
 
       {/* Snackbar für Feedback */}
@@ -493,7 +414,7 @@ const ProfilePage: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </GradientBackground>
+    </WhiteBackground>
   );
 };
 

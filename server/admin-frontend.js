@@ -39,6 +39,6 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin-dashboard.html'));
 });
 
-app.listen(3001, () => {
-  console.log('Admin-Frontend läuft auf Port 3001');
+app.listen(3002, () => {
+  console.log('Admin-Frontend läuft auf Port 3002');
 });

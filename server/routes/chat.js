@@ -199,23 +199,28 @@ async function findOrCreateChatRoom(roomData) {
         lastActivity: existingRoom.lastActivity
       };
     } else {
-      console.log(`🆕 CREATING NEW ROOM: ${roomData.name} (ID: ${roomData._id})`);
+      console.log(`🆕 CREATING NEW ROOM: ${roomData.name} (ID: ${roomData.roomId || 'auto-generated'})`);
       
       // 2. Erstelle neuen Room
       const newRoom = new ChatRoom({
-        _id: roomData._id,
+        roomId: roomData.roomId || `auto_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name: roomData.name,
         type: roomData.type,
         subType: roomData.subType,
-        participants: roomData.participants || 0,
+        participants: [req.user.id], // Benutzer als Teilnehmer hinzufügen
         description: roomData.description,
         location: roomData.location,
         isActive: true,
         createdAt: new Date(),
         lastActivity: new Date(),
-        createdBy: null, // System-generierte Rooms
-        maxParticipants: roomData.type === 'city' ? 100 : 50,
-        isPublic: true
+        createdBy: req.user.id, // Benutzer als Ersteller
+        settings: {
+          isPublic: true,
+          allowMedia: true,
+          allowImages: true,
+          allowVideos: true,
+          allowFiles: true
+        }
       });
       
       const savedRoom = await newRoom.save();
@@ -375,7 +380,54 @@ router.post('/rooms/nearby', auth, async (req, res) => {
   }
 });
 
-// NEUE ROUTE: Room-Details abrufen
+// Get all rooms that the user has access to - MOVED BEFORE :roomId route
+router.get('/rooms/user', auth, async (req, res) => {
+  try {
+    console.log(`👤 [GET] /api/chat/rooms/user - Fetching all user rooms for: ${req.user.id}`);
+    console.log(`   User object:`, req.user);
+    
+    // Get all rooms the user is a participant of or created
+    const userRooms = await ChatRoom.find({
+      $or: [
+        { createdBy: req.user.id },
+        { participants: req.user.id }
+      ]
+    })
+    .populate('createdBy', 'username')
+    .populate('participants', 'username')
+    .sort({ lastActivity: -1 })
+    .lean();
+
+    console.log(`   Found ${userRooms.length} raw rooms`);
+
+    // Add additional info
+    const roomsWithInfo = userRooms.map(room => ({
+      ...room,
+      memberCount: room.participants ? room.participants.length : 0,
+      isOwner: room.createdBy && room.createdBy._id.toString() === req.user.id
+    }));
+
+    console.log(`✅ [GET] /api/chat/rooms/user - Success: ${roomsWithInfo.length} rooms for user`);
+    
+    res.json({
+      success: true,
+      rooms: roomsWithInfo,
+      count: roomsWithInfo.length
+    });
+
+  } catch (error) {
+    console.error('❌ [GET] /api/chat/rooms/user - Error fetching user rooms:', error);
+    console.error('   Error details:', error.message);
+    console.error('   Stack:', error.stack);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch user rooms', 
+      details: error.message 
+    });
+  }
+});
+
+// NEUE ROUTE: Room-Details abrufen (MOVED AFTER /rooms/user)
 router.get('/rooms/:roomId', async (req, res) => {
   try {
     const { roomId } = req.params;
@@ -442,7 +494,19 @@ router.get('/rooms/:roomId/messages', auth, async (req, res) => {
       console.log('   [DEBUG] No messages found for this room.');
     }
 
-    res.json(Array.isArray(messages) ? messages : []);
+    // Reverse messages für chronologische Reihenfolge (älteste zuerst)
+    const reversedMessages = messages.reverse();
+    
+    res.json({
+      messages: reversedMessages,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalMessages / parseInt(limit)),
+        totalMessages,
+        hasNextPage: (parseInt(page) * parseInt(limit)) < totalMessages,
+        hasPreviousPage: parseInt(page) > 1
+      }
+    });
   } catch (error) {
     console.error('❌ [ERROR] fetching room messages:', error);
     console.error('   Error stack:', error.stack);
@@ -509,5 +573,362 @@ router.post('/rooms/:roomId/join', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+// Initialize local chat rooms for user location
+router.post('/rooms/initialize-local', auth, async (req, res) => {
+  try {
+    console.log(`🌍 [POST] /api/chat/rooms/initialize-local - Starting...`);
+    console.log(`   User: ${req.user.id}`);
+    console.log(`   Body:`, req.body);
     
+    const { latitude, longitude, address } = req.body;
+    
+    if (!latitude || !longitude) {
+      console.log(`❌ [POST] /api/chat/rooms/initialize-local - Missing coordinates`);
+      return res.status(400).json({ 
+        success: false,
+        error: 'Latitude and longitude required' 
+      });
+    }
+
+    console.log(`🌍 [POST] /api/chat/rooms/initialize-local - Initializing local rooms for: ${latitude}, ${longitude}`);
+    
+    // Get structured location analysis
+    console.log(`   Calling getStructuredLocationAnalysis...`);
+    const analysis = await getStructuredLocationAnalysis(parseFloat(latitude), parseFloat(longitude));
+    console.log(`   Analysis result:`, analysis ? 'SUCCESS' : 'FAILED');
+    
+    if (!analysis || !analysis.placesInRadius) {
+      console.log(`❌ [POST] /api/chat/rooms/initialize-local - Analysis failed`);
+      return res.status(500).json({ 
+        success: false,
+        error: 'Failed to analyze location' 
+      });
+    }
+
+    console.log(`   Found ${analysis.placesInRadius.length} places in radius`);
+    let createdRooms = 0;
+    let existingRooms = 0;
+
+    // Create local rooms for each place
+    for (const place of analysis.placesInRadius) {
+      const roomId = `room_${place.type}_${place.lat.toFixed(4)}_${place.lng.toFixed(4)}`;
+      
+      // Check if room already exists
+      let existingRoom = await ChatRoom.findOne({ roomId });
+      
+      if (!existingRoom) {
+        // Create new room
+        const newRoom = new ChatRoom({
+          roomId,
+          name: place.name,
+          description: `${place.type} in ${place.address?.city || 'der Nähe'}`,
+          type: 'location',
+          location: {
+            latitude: place.lat,
+            longitude: place.lng,
+            address: place.address?.street || '',
+            city: place.address?.city || '',
+            postalCode: place.address?.postcode || '',
+            country: place.address?.country || 'Deutschland',
+            radius: 2000
+          },
+          createdBy: req.user.id,
+          participants: [req.user.id],
+          settings: {
+            isPublic: true,
+            allowMedia: true,
+            allowImages: true,
+            allowVideos: true,
+            allowFiles: true
+          }
+        });
+
+        await newRoom.save();
+        createdRooms++;
+        console.log(`✅ Created room: ${place.name}`);
+      } else {
+        // Add user to existing room if not already a participant
+        if (!existingRoom.participants.includes(req.user.id)) {
+          existingRoom.participants.push(req.user.id);
+          await existingRoom.save();
+        }
+        existingRooms++;
+        console.log(`📍 Joined existing room: ${place.name}`);
+      }
+    }
+
+    console.log(`🎯 Local rooms initialized: ${createdRooms} created, ${existingRooms} existing`);
+    
+    res.json({
+      success: true,
+      message: 'Local rooms initialized successfully',
+      created: createdRooms,
+      existing: existingRooms,
+      total: analysis.placesInRadius.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error initializing local rooms:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to initialize local rooms', 
+      details: error.message 
+    });
+  }
+});
+
+// 📸 MEDIA UPLOAD ROUTE - Fehlende Upload-Route hinzufügen
+router.post('/upload/media', auth, upload.single('media'), async (req, res) => {
+  try {
+    console.log('📸 [UPLOAD] Media upload request received');
+    console.log('   User:', req.user?.username || 'Unknown');
+    console.log('   File:', req.file?.filename || 'No file');
+    console.log('   Mimetype:', req.file?.mimetype || 'Unknown');
+    console.log('   Body:', req.body);
+    
+    if (!req.file) {
+      console.log('❌ [UPLOAD] No file uploaded');
+      return res.status(400).json({ 
+        success: false,
+        error: 'No file uploaded' 
+      });
+    }
+
+    const { roomId, type = 'image', content = '' } = req.body;
+    
+    if (!roomId) {
+      console.log('❌ [UPLOAD] No roomId provided');
+      return res.status(400).json({ 
+        success: false,
+        error: 'Room ID required' 
+      });
+    }
+
+    // Generate file URL
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? process.env.PRODUCTION_URL 
+      : 'http://localhost:1113';
+    
+    let fileUrl;
+    if (req.file.mimetype.startsWith('image/')) {
+      fileUrl = `${baseUrl}/uploads/images/${req.file.filename}`;
+    } else if (req.file.mimetype.startsWith('video/')) {
+      fileUrl = `${baseUrl}/uploads/videos/${req.file.filename}`;
+    } else {
+      fileUrl = `${baseUrl}/uploads/files/${req.file.filename}`;
+    }
+
+    // Create message with media
+    const Message = require('../models/Message');
+    const User = require('../models/User');
+    
+    const message = new Message({
+      content: content || `Medien-Upload: ${req.file.originalname}`,
+      type: req.file.mimetype.startsWith('image/') ? 'image' : 
+            req.file.mimetype.startsWith('video/') ? 'video' : 'file',
+      sender: req.user.id,
+      chatRoom: roomId,
+      mediaUrl: fileUrl,
+      media: {
+        type: req.file.mimetype.startsWith('image/') ? 'image' : 
+              req.file.mimetype.startsWith('video/') ? 'video' : 'file',
+        url: fileUrl,
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size
+      },
+      createdAt: new Date()
+    });
+
+    await message.save();
+    
+    // Populate user data
+    await message.populate('sender', 'username avatar');
+
+    console.log('✅ [UPLOAD] File uploaded and message created:', fileUrl);
+
+    res.json({
+      success: true,
+      message: message,
+      file: {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        url: fileUrl
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ [UPLOAD] Error uploading media:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to upload media', 
+      details: error.message 
+    });
+  }
+});
+
+// ✨ GET ROOM USERS - Alle Benutzer eines Chatraums abrufen
+router.get('/rooms/:roomId/users', auth, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    
+    console.log('👥 [USERS] Fetching users for room:', roomId);
+    
+    // Finde den Raum
+    const room = await ChatRoom.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Chatraum nicht gefunden' 
+      });
+    }
+    
+    // Hole alle Benutzer des Raums mit aktuellen Online-Status
+    const users = await User.find({
+      _id: { $in: room.members }
+    }, {
+      username: 1,
+      avatar: 1,
+      isActive: 1,
+      lastSeen: 1,
+      createdAt: 1
+    }).sort({ isActive: -1, lastSeen: -1 });
+    
+    console.log('✅ [USERS] Found users:', users.length);
+    
+    res.json(users);
+  } catch (error) {
+    console.error('❌ [USERS] Error fetching room users:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch room users',
+      details: error.message 
+    });
+  }
+});
+
+// ✨ GET ROOM GALLERY - Alle Medien eines Chatraums für Galerie
+router.get('/rooms/:roomId/gallery', auth, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    
+    console.log('🖼️ [GALLERY] Fetching gallery for room:', roomId);
+    
+    // Get all media messages (images and videos)
+    const mediaMessages = await Message.find({
+      chatRoom: roomId,
+      type: { $in: ['image', 'video'] },
+      $or: [
+        { mediaUrl: { $exists: true, $ne: null } },
+        { 'media.url': { $exists: true, $ne: null } }
+      ]
+    })
+    .populate('sender', 'username avatar')
+    .sort({ createdAt: -1 });
+
+    // Transform to gallery format
+    const galleryItems = mediaMessages.map(message => ({
+      _id: message._id,
+      messageId: message._id,
+      url: message.mediaUrl || message.media?.url,
+      filename: message.media?.originalName || message.filename || 'media',
+      user: {
+        _id: message.sender._id,
+        username: message.sender.username,
+        avatar: message.sender.avatar
+      },
+      likes: (message.likes || []).map(like => like.user?.toString() || like.toString()),
+      likesCount: (message.likes || []).length,
+      comments: [], // Comments werden später implementiert
+      commentsCount: 0,
+      createdAt: message.createdAt,
+      type: message.type
+    }));
+
+    console.log('✅ [GALLERY] Found media items:', galleryItems.length);
+
+    res.json(galleryItems);
+  } catch (error) {
+    console.error('❌ [GALLERY] Error fetching gallery:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch gallery',
+      details: error.message 
+    });
+  }
+});
+
+// ✨ LIKE GALLERY ITEM - Like/Unlike für Galerie-Element
+router.post('/gallery/:messageId/like', auth, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user.id;
+
+    console.log('👍 [LIKE] Toggle like for message:', messageId);
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Message not found' 
+      });
+    }
+
+    // Initialize likes array if it doesn't exist
+    if (!message.likes) {
+      message.likes = [];
+    }
+
+    // Toggle like - check if user already liked
+    const existingLikeIndex = message.likes.findIndex(
+      like => (like.user?.toString() || like.toString()) === userId
+    );
+    
+    if (existingLikeIndex > -1) {
+      message.likes.splice(existingLikeIndex, 1);
+      console.log('👎 [LIKE] Removed like');
+    } else {
+      message.likes.push({ user: userId, timestamp: new Date() });
+      console.log('👍 [LIKE] Added like');
+    }
+
+    await message.save();
+
+    res.json({ 
+      success: true, 
+      likes: message.likes.map(like => like.user?.toString() || like.toString()),
+      likesCount: message.likes.length 
+    });
+  } catch (error) {
+    console.error('❌ [LIKE] Error toggling like:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to toggle like',
+      details: error.message 
+    });
+  }
+});
+
+// ✨ ADD COMMENT TO GALLERY ITEM - Kommentar zu Bild/Video hinzufügen
+// TODO: Implement comments system with separate Comment model
+router.post('/gallery/:messageId/comment', auth, async (req, res) => {
+  try {
+    // Placeholder - comments feature to be implemented later
+    res.status(501).json({ 
+      success: false, 
+      error: 'Comments feature not yet implemented' 
+    });
+  } catch (error) {
+    console.error('❌ [COMMENT] Error adding comment:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to add comment',
+      details: error.message 
+    });
+  }
+});
+
+module.exports = router;

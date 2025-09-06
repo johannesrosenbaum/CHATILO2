@@ -19,6 +19,7 @@ import {
   Close,
 } from '@mui/icons-material';
 import { useSocket } from '../contexts/SocketContext';
+import UploadProgress from './Chat/UploadProgress';
 
 interface MessageInputProps {
   roomId: string;
@@ -29,6 +30,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ roomId }) => {
   const [attachMenuAnchor, setAttachMenuAnchor] = useState<null | HTMLElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadingFileName, setUploadingFileName] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { sendMessage, currentRoom } = useSocket();
 
@@ -83,6 +85,8 @@ const MessageInput: React.FC<MessageInputProps> = ({ roomId }) => {
     if (!selectedFile) return;
     
     setUploading(true);
+    setUploadingFileName(selectedFile.name);
+    
     try {
       // Für jetzt nur eine einfache Nachricht senden
       sendMessage(`📎 Datei: ${selectedFile.name}`);
@@ -91,6 +95,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ roomId }) => {
       console.error('Error sending file:', error);
     } finally {
       setUploading(false);
+      setUploadingFileName('');
     }
   };
 
@@ -153,6 +158,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ roomId }) => {
 
     console.log('📷 Processing image upload:', file.name);
     setUploading(true);
+    setUploadingFileName(file.name);
 
     try {
       // Create FormData for file upload
@@ -184,6 +190,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ roomId }) => {
           const base64Data = e.target?.result as string;
           sendMessage(`[IMAGE]${base64Data}`);
           setUploading(false);
+          setUploadingFileName('');
         };
         reader.readAsDataURL(file);
         return;
@@ -196,12 +203,14 @@ const MessageInput: React.FC<MessageInputProps> = ({ roomId }) => {
         const base64Data = e.target?.result as string;
         sendMessage(`[IMAGE]${base64Data}`);
         setUploading(false);
+        setUploadingFileName('');
       };
       reader.readAsDataURL(file);
       return;
     }
     
     setUploading(false);
+    setUploadingFileName('');
     // Reset input
     event.target.value = '';
   };
@@ -295,6 +304,12 @@ const MessageInput: React.FC<MessageInputProps> = ({ roomId }) => {
         type="file"
         hidden
         onChange={handleFileChange}
+      />
+
+      {/* Upload Progress Indicator */}
+      <UploadProgress
+        isVisible={uploading}
+        fileName={uploadingFileName}
       />
     </Paper>
   );

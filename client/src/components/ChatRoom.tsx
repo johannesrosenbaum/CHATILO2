@@ -209,39 +209,81 @@ const ChatRoom: React.FC = () => {
   }
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#f0f2f5' }}>
-      {/* 🎨 MODERN HEADER */}
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'white' }}>
+      {/* ✨ CI-KONFORMES HEADER MIT WEISSEM HINTERGRUND */}
       <Paper 
-        elevation={3} 
+        elevation={0} 
         sx={{ 
-          p: 2, 
+          p: 2.5, 
           borderRadius: 0,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          color: 'white'
+          background: 'white',
+          borderTop: '4px solid transparent',
+          borderImage: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%) 1',
+          boxShadow: '0 2px 8px rgba(102, 126, 234, 0.15)',
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            borderRadius: '0'
+          }
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <IconButton onClick={handleBack} edge="start" sx={{ color: 'white' }}>
+          <IconButton 
+            onClick={handleBack} 
+            edge="start" 
+            sx={{ 
+              color: '#667eea',
+              '&:hover': {
+                bgcolor: 'rgba(102, 126, 234, 0.08)',
+                transform: 'scale(1.05)'
+              },
+              transition: 'all 0.2s ease'
+            }}
+          >
             <ArrowBackIcon />
           </IconButton>
           
-          {/* Room Avatar */}
+          {/* Room Avatar mit CI-Gradient */}
           <Avatar
             sx={{
-              bgcolor: 'rgba(255,255,255,0.2)',
-              border: '2px solid rgba(255,255,255,0.3)',
-              width: 40,
-              height: 40
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              border: '2px solid rgba(102, 126, 234, 0.2)',
+              width: 44,
+              height: 44,
+              fontSize: '1.2rem',
+              fontWeight: 'bold',
+              color: 'white',
+              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
             }}
           >
             {currentRoomInfo?.name?.charAt(0).toUpperCase() || 'R'}
           </Avatar>
           
           <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" noWrap sx={{ fontWeight: 600 }}>
+            <Typography 
+              variant="h6" 
+              noWrap 
+              sx={{ 
+                fontWeight: 600,
+                color: '#2d3748',
+                fontSize: '1.1rem'
+              }}
+            >
               {currentRoomInfo?.name || 'Chat Room'}
             </Typography>
-            <Typography variant="caption" sx={{ opacity: 0.9 }}>
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                color: '#718096',
+                fontSize: '0.85rem'
+              }}
+            >
               {currentRoomInfo?.participants || 0} Teilnehmer • {activeRoom ? 'Online' : 'Verbindung...'}
             </Typography>
           </Box>
@@ -251,9 +293,10 @@ const ChatRoom: React.FC = () => {
               label={activeRoom ? 'Verbunden' : 'Verbindung...'}
               size="small"
               sx={{
-                bgcolor: activeRoom ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255, 152, 0, 0.2)',
-                color: activeRoom ? '#4CAF50' : '#FF9800',
-                border: `1px solid ${activeRoom ? 'rgba(76, 175, 80, 0.5)' : 'rgba(255, 152, 0, 0.5)'}`
+                bgcolor: activeRoom ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)',
+                color: activeRoom ? '#2e7d32' : '#f57c00',
+                border: `1px solid ${activeRoom ? 'rgba(76, 175, 80, 0.3)' : 'rgba(255, 152, 0, 0.3)'}`,
+                fontWeight: 500
               }}
             />
             {currentRoomInfo && (
@@ -267,24 +310,28 @@ const ChatRoom: React.FC = () => {
         </Box>
       </Paper>
 
-      {/* 🎨 MODERN MESSAGES AREA */}
+      {/* ✨ CLEAN WHITE MESSAGES AREA */}
       <Box sx={{ 
         flexGrow: 1, 
         overflow: 'auto', 
         p: 2,
-        background: 'linear-gradient(180deg, #f0f2f5 0%, #e3f2fd 100%)',
+        bgcolor: 'white',
         position: 'relative'
       }}>
         
-        {/* Background Pattern */}
+        {/* Subtle CI Accent Pattern */}
         <Box sx={{
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          opacity: 0.03,
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          opacity: 0.02,
+          background: `
+            radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(118, 75, 162, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 40% 80%, rgba(102, 126, 234, 0.1) 0%, transparent 50%)
+          `,
           pointerEvents: 'none'
         }} />
         
@@ -321,10 +368,10 @@ const ChatRoom: React.FC = () => {
             </Box>
             
             <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h5" sx={{ fontWeight: 600, color: '#333', mb: 1 }}>
+              <Typography variant="h5" sx={{ fontWeight: 600, color: '#2d3748', mb: 1 }}>
                 {effectiveRoom ? 'Willkommen im Chat!' : 'Verbindung wird hergestellt...'}
               </Typography>
-              <Typography variant="body1" color="text.secondary">
+              <Typography variant="body1" sx={{ color: '#718096' }}>
                 {effectiveRoom 
                   ? 'Schreibe die erste Nachricht und starte die Unterhaltung!' 
                   : `Raum: ${roomId || 'Unbekannt'}`
@@ -333,7 +380,7 @@ const ChatRoom: React.FC = () => {
             </Box>
           </Box>
         ) : (
-          // 🎨 ULTRA-MODERNE MESSAGE BUBBLES
+          // ✨ CLEAN WHITE MESSAGE BUBBLES
           <Box sx={{ position: 'relative', zIndex: 1 }}>
             {messages.map((message, index) => {
               const { username: displayUsername, userId: msgUserId } = getUserDisplayInfo(message);
@@ -371,26 +418,27 @@ const ChatRoom: React.FC = () => {
                     }
                   }}
                 >
-                  {/* Avatar für fremde Messages (links) */}
+                  {/* Avatar für fremde Messages (links) mit CI-Design */}
                   {!isOwn && (
                     <Avatar
                       sx={{
-                        bgcolor: '#9c27b0',
-                        background: 'linear-gradient(135deg, #e91e63 0%, #9c27b0 100%)',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                         width: 36,
                         height: 36,
                         fontSize: '0.9rem',
                         mr: 1.5,
                         alignSelf: 'flex-end',
                         border: '2px solid white',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                        boxShadow: '0 3px 12px rgba(102, 126, 234, 0.3)',
+                        color: 'white',
+                        fontWeight: 'bold'
                       }}
                     >
                       {displayUsername.charAt(0).toUpperCase()}
                     </Avatar>
                   )}
                   
-                  {/* 🎨 MODERN MESSAGE BUBBLE */}
+                  {/* ✨ CLEAN WHITE MESSAGE BUBBLE */}
                   <Box
                     sx={{
                       maxWidth: '75%',
@@ -400,19 +448,19 @@ const ChatRoom: React.FC = () => {
                   >
                     {/* Message Bubble */}
                     <Paper
-                      elevation={3}
+                      elevation={0}
                       sx={{
                         p: 2,
                         position: 'relative',
                         background: isOwn 
                           ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                          : 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                        color: isOwn ? 'white' : '#333',
+                          : 'white',
+                        color: isOwn ? 'white' : '#2d3748',
                         borderRadius: '18px',
                         boxShadow: isOwn 
-                          ? '0 4px 15px rgba(102, 126, 234, 0.3)'
-                          : '0 2px 10px rgba(0,0,0,0.1)',
-                        border: isOwn ? 'none' : '1px solid rgba(0,0,0,0.08)',
+                          ? '0 4px 20px rgba(102, 126, 234, 0.25)'
+                          : '0 2px 12px rgba(0,0,0,0.08)',
+                        border: isOwn ? 'none' : '1px solid rgba(102, 126, 234, 0.1)',
                         // Message tail
                         '&::before': {
                           content: '""',
@@ -423,16 +471,16 @@ const ChatRoom: React.FC = () => {
                           height: 0,
                           borderLeft: isOwn ? '6px solid transparent' : 'none',
                           borderRight: isOwn ? 'none' : '6px solid transparent',
-                          borderTop: `6px solid ${isOwn ? '#667eea' : '#ffffff'}`,
-                          filter: isOwn ? 'none' : 'drop-shadow(-1px -1px 1px rgba(0,0,0,0.1))'
+                          borderTop: `6px solid ${isOwn ? '#667eea' : 'white'}`,
+                          filter: isOwn ? 'none' : 'drop-shadow(-1px -1px 2px rgba(102, 126, 234, 0.1))'
                         },
                         // Hover effect
                         transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                         '&:hover': {
                           transform: 'translateY(-1px)',
                           boxShadow: isOwn 
-                            ? '0 6px 20px rgba(102, 126, 234, 0.4)'
-                            : '0 4px 15px rgba(0,0,0,0.15)'
+                            ? '0 6px 25px rgba(102, 126, 234, 0.35)'
+                            : '0 4px 18px rgba(102, 126, 234, 0.15)'
                         }
                       }}
                     >
@@ -442,7 +490,7 @@ const ChatRoom: React.FC = () => {
                           variant="caption" 
                           sx={{ 
                             fontWeight: 600,
-                            color: '#9c27b0',
+                            color: '#667eea',
                             display: 'block',
                             mb: 0.5,
                             fontSize: '0.75rem'
@@ -523,14 +571,15 @@ const ChatRoom: React.FC = () => {
         )}
       </Box>
 
-      {/* 🎨 MODERN MESSAGE INPUT */}
+      {/* ✨ CLEAN WHITE MESSAGE INPUT */}
       <Paper 
-        elevation={8} 
+        elevation={0} 
         sx={{ 
           p: 2.5, 
           borderRadius: 0,
-          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-          borderTop: '1px solid rgba(0,0,0,0.08)'
+          background: 'white',
+          borderTop: '1px solid rgba(102, 126, 234, 0.1)',
+          boxShadow: '0 -4px 20px rgba(102, 126, 234, 0.08)'
         }}
       >
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
@@ -544,21 +593,21 @@ const ChatRoom: React.FC = () => {
               setIsTyping(e.target.value.length > 0);
             }}
             onKeyPress={handleKeyPress}
-            placeholder="Nachricht eingeben..."
+            placeholder={`Nachricht an ${currentRoomInfo?.name || 'Chat Room'}...`}
             variant="outlined"
             disabled={!activeRoom}
             sx={{
               '& .MuiOutlinedInput-root': {
                 borderRadius: '25px',
-                backgroundColor: '#f8f9fa',
-                border: '2px solid transparent',
+                backgroundColor: 'white',
+                border: '2px solid rgba(102, 126, 234, 0.1)',
                 transition: 'all 0.3s ease',
                 '&:hover': {
-                  backgroundColor: '#ffffff',
-                  border: '2px solid rgba(102, 126, 234, 0.3)'
+                  backgroundColor: 'white',
+                  border: '2px solid rgba(102, 126, 234, 0.2)'
                 },
                 '&.Mui-focused': {
-                  backgroundColor: '#ffffff',
+                  backgroundColor: 'white',
                   border: '2px solid #667eea',
                   boxShadow: '0 0 0 3px rgba(102, 126, 234, 0.1)'
                 },
@@ -567,7 +616,12 @@ const ChatRoom: React.FC = () => {
               '& .MuiInputBase-input': {
                 fontSize: '0.95rem',
                 py: 1.5,
-                px: 2
+                px: 2,
+                color: '#2d3748'
+              },
+              '& .MuiInputBase-input::placeholder': {
+                color: '#a0aec0',
+                opacity: 1
               }
             }}
           />

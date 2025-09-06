@@ -15,6 +15,7 @@ const locationRoutes = require('./routes/location');
 const adminRoutes = require('./routes/admin');
 const adminStatsRoutes = require('./routes/adminStats');
 const healthRoutes = require('./routes/health');
+const eventRoutes = require('./routes/events'); // NEW: Event routes
 const socketHandler = require('./sockets/socketHandler');
 
 // Create databaseSetup function inline
@@ -39,7 +40,8 @@ const createUploadDirectories = () => {
     path.join(__dirname, 'uploads/images'),
     path.join(__dirname, 'uploads/videos'),
     path.join(__dirname, 'uploads/files'),
-    path.join(__dirname, 'uploads/avatars')
+    path.join(__dirname, 'uploads/avatars'),
+    path.join(__dirname, 'uploads/events') // NEW: Event cover images
   ];
 
   directories.forEach(dir => {
@@ -197,6 +199,7 @@ app.use('/api/location', locationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin', adminStatsRoutes);
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/events', eventRoutes); // NEW: Event API routes
 
 // Debug route information
 app._router.stack.forEach((middleware, index) => {
