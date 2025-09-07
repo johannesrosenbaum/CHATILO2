@@ -36,6 +36,29 @@ const GradientButton = styled(Button)(({ theme }) => ({
   }
 }));
 
+const StyledTextField = styled(TextField)(({ theme }) => ({
+  marginBottom: theme.spacing(2),
+  '& .MuiOutlinedInput-root': {
+    borderRadius: 12,
+    background: 'rgba(255, 255, 255, 0.8)',
+    backdropFilter: 'blur(10px)',
+    '&:hover .MuiOutlinedInput-notchedOutline': {
+      borderColor: '#667eea',
+    },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+      borderColor: '#667eea',
+      boxShadow: '0 0 0 3px rgba(102, 126, 234, 0.1)',
+    }
+  },
+  '& .MuiInputLabel-root': {
+    color: '#667eea',
+    fontWeight: 600,
+    '&.Mui-focused': {
+      color: '#667eea',
+    }
+  }
+}));
+
 const RegisterPage: React.FC = () => {
   const [formData, setFormData] = useState({
     username: '',
@@ -116,7 +139,7 @@ const RegisterPage: React.FC = () => {
           )}
 
           <Box component="form" onSubmit={handleSubmit}>
-            <TextField
+            <StyledTextField
               fullWidth
               name="username"
               label="Benutzername"
@@ -127,7 +150,7 @@ const RegisterPage: React.FC = () => {
               disabled={loading}
             />
             
-            <TextField
+            <StyledTextField
               fullWidth
               name="email"
               label="E-Mail"
@@ -139,7 +162,7 @@ const RegisterPage: React.FC = () => {
               disabled={loading}
             />
             
-            <TextField
+            <StyledTextField
               fullWidth
               name="password"
               label="Passwort"
@@ -151,7 +174,7 @@ const RegisterPage: React.FC = () => {
               disabled={loading}
             />
             
-            <TextField
+            <StyledTextField
               fullWidth
               name="confirmPassword"
               label="Passwort bestätigen"
