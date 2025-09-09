@@ -97,6 +97,36 @@ const userSchema = new mongoose.Schema({
     type: String, // String-IDs für Chaträume
     ref: 'ChatRoom'
   }],
+  favoriteRooms: [{
+    type: String,
+    index: true
+  }],
+  // Push Notification Support
+  pushSubscriptions: [{
+    endpoint: String,
+    keys: {
+      p256dh: String,
+      auth: String
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  notificationSettings: {
+    pushEnabled: {
+      type: Boolean,
+      default: true
+    },
+    favoriteRoomsOnly: {
+      type: Boolean,
+      default: true
+    },
+    sound: {
+      type: Boolean,
+      default: true
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now

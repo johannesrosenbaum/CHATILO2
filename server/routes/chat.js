@@ -16,6 +16,9 @@ const {
   getStructuredLocationAnalysis 
 } = require('../utils/geocoding');
 
+// 🔔 Push Notification Service
+const PushService = require('../services/PushService');
+
 // Configure multer for media uploads (images, videos, GIFs)
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -540,6 +543,48 @@ router.post('/rooms/:roomId/messages', auth, async (req, res) => {
     // Optional: Nachricht mit Userdaten zurückgeben
     await message.populate('sender', 'username avatar');
 
+    // 🔔 PUSH NOTIFICATIONS: Sende an alle User die diesen Raum als Favorit haben
+    try {
+      console.log(`🔔 [PUSH] Processing push notifications for room ${roomId}`);
+      
+      // Hole alle User die diesen Raum als Favorit haben (außer dem Sender)
+      const usersWithFavorite = await User.find({
+        favoriteRooms: roomId,
+        _id: { $ne: userId }, // Nicht an den Sender senden
+        'notificationSettings.pushEnabled': { $ne: false }
+      });
+
+      console.log(`🔔 [PUSH] Found ${usersWithFavorite.length} users with room as favorite`);
+
+      // Hole Room-Details für Notification
+      const room = await ChatRoom.findById(roomId);
+      const roomName = room ? room.name : 'Chat';
+
+      // Sende Push-Notifications asynchron (nicht blockierend)
+      const notificationPromises = usersWithFavorite.map(async (user) => {
+        try {
+          const result = await PushService.sendNotification(user._id, roomId, roomName);
+          console.log(`🔔 [PUSH] Notification result for user ${user.username}:`, result.success ? 'SUCCESS' : result.reason);
+          return { userId: user._id, username: user.username, result };
+        } catch (error) {
+          console.error(`❌ [PUSH] Error sending to user ${user.username}:`, error.message);
+          return { userId: user._id, username: user.username, error: error.message };
+        }
+      });
+
+      // Warte nicht auf alle Notifications (non-blocking)
+      Promise.all(notificationPromises).then(results => {
+        const successCount = results.filter(r => r.result?.success).length;
+        console.log(`🔔 [PUSH] Notifications completed: ${successCount}/${results.length} successful`);
+      }).catch(error => {
+        console.error(`❌ [PUSH] Error in notification batch:`, error);
+      });
+
+    } catch (pushError) {
+      console.error('❌ [PUSH] Error processing push notifications:', pushError);
+      // Fehler bei Push-Notifications sollen nicht die Nachricht blockieren
+    }
+
     res.json({ message });
   } catch (error) {
     console.error('❌ Error sending message:', error);
@@ -564,6 +609,15 @@ router.post('/rooms/:roomId/join', auth, async (req, res) => {
     if (!room.participants.includes(userId)) {
       room.participants.push(userId);
       await room.save();
+    }
+
+    // 🔄 PUSH NOTIFICATIONS: Reset notification trigger für diesen User/Room
+    try {
+      const resetResult = await PushService.resetRoomNotification(userId, roomId);
+      console.log(`🔄 [PUSH] Reset notification trigger:`, resetResult.success ? 'SUCCESS' : resetResult.error);
+    } catch (pushError) {
+      console.error('❌ [PUSH] Error resetting notification trigger:', pushError);
+      // Fehler beim Reset soll nicht das Join blockieren
     }
 
     res.json({ success: true, room });
@@ -930,5 +984,218 @@ router.post('/gallery/:messageId/comment', auth, async (req, res) => {
     });
   }
 });
+
+// ===== PUSH NOTIFICATION ROUTES =====
+
+// 📱 Push-Subscription hinzufügen
+router.post('/push/subscribe', auth, async (req, res) => {
+  try {
+    const { subscription } = req.body;
+    
+    if (!subscription || !subscription.endpoint) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Valid subscription required' 
+      });
+    }
+
+    console.log(`📱 [PUSH] Adding subscription for user ${req.user.username}`);
+    
+    const result = await PushService.addSubscription(req.user._id, subscription);
+    
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        message: 'Push subscription added successfully',
+        subscriptionCount: result.subscriptionCount
+      });
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('❌ [PUSH] Error adding subscription:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to add subscription',
+      details: error.message 
+    });
+  }
+});
+
+// 🗑️ Push-Subscription entfernen
+router.post('/push/unsubscribe', auth, async (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    
+    if (!endpoint) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Endpoint required' 
+      });
+    }
+
+    console.log(`🗑️ [PUSH] Removing subscription for user ${req.user.username}`);
+    
+    const result = await PushService.removeSubscription(req.user._id, endpoint);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('❌ [PUSH] Error removing subscription:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to remove subscription',
+      details: error.message 
+    });
+  }
+});
+
+// ⭐ Raum zu Favoriten hinzufügen
+router.post('/rooms/:roomId/favorite', auth, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const userId = req.user._id;
+
+    console.log(`⭐ [FAVORITE] Adding room ${roomId} to favorites for user ${req.user.username}`);
+
+    // Prüfe ob Raum existiert
+    const room = await ChatRoom.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Room not found' 
+      });
+    }
+
+    // Füge zu Favoriten hinzu
+    const user = await User.findById(userId);
+    if (!user.favoriteRooms) {
+      user.favoriteRooms = [];
+    }
+
+    if (!user.favoriteRooms.includes(roomId)) {
+      user.favoriteRooms.push(roomId);
+      await user.save();
+      console.log(`✅ [FAVORITE] Room added to favorites`);
+    } else {
+      console.log(`ℹ️ [FAVORITE] Room already in favorites`);
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Room added to favorites',
+      favoriteCount: user.favoriteRooms.length 
+    });
+
+  } catch (error) {
+    console.error('❌ [FAVORITE] Error adding to favorites:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to add to favorites',
+      details: error.message 
+    });
+  }
+});
+
+// ❌ Raum aus Favoriten entfernen
+router.delete('/rooms/:roomId/favorite', auth, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const userId = req.user._id;
+
+    console.log(`❌ [FAVORITE] Removing room ${roomId} from favorites for user ${req.user.username}`);
+
+    const user = await User.findById(userId);
+    if (user.favoriteRooms) {
+      const beforeCount = user.favoriteRooms.length;
+      user.favoriteRooms = user.favoriteRooms.filter(id => id !== roomId);
+      
+      if (user.favoriteRooms.length < beforeCount) {
+        await user.save();
+        console.log(`✅ [FAVORITE] Room removed from favorites`);
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Room removed from favorites',
+      favoriteCount: user.favoriteRooms ? user.favoriteRooms.length : 0
+    });
+
+  } catch (error) {
+    console.error('❌ [FAVORITE] Error removing from favorites:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to remove from favorites',
+      details: error.message 
+    });
+  }
+});
+
+// 📋 User Favoriten abrufen
+router.get('/favorites', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    const favoriteRooms = user.favoriteRooms || [];
+
+    // Hole Details für alle Favoriten-Räume
+    const rooms = await ChatRoom.find({
+      _id: { $in: favoriteRooms }
+    }).lean();
+
+    console.log(`📋 [FAVORITES] Found ${rooms.length} favorite rooms for user ${req.user.username}`);
+
+    res.json({
+      success: true,
+      favorites: favoriteRooms,
+      rooms: rooms,
+      count: favoriteRooms.length
+    });
+
+  } catch (error) {
+    console.error('❌ [FAVORITES] Error fetching favorites:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch favorites',
+      details: error.message 
+    });
+  }
+});
+
+// 🔔 Push-Notification Test senden
+router.post('/push/test', auth, async (req, res) => {
+  try {
+    const { roomId } = req.body;
+    
+    if (!roomId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Room ID required' 
+      });
+    }
+
+    console.log(`🔔 [PUSH] Sending test notification for user ${req.user.username}`);
+    
+    const room = await ChatRoom.findById(roomId);
+    const roomName = room ? room.name : 'Test Room';
+    
+    const result = await PushService.sendNotification(req.user._id, roomId, roomName);
+    
+    res.json({
+      success: result.success,
+      message: result.success ? 'Test notification sent' : 'Failed to send test notification',
+      details: result
+    });
+
+  } catch (error) {
+    console.error('❌ [PUSH] Error sending test notification:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to send test notification',
+      details: error.message 
+    });
+  }
+});
+
+// ===== END PUSH NOTIFICATION ROUTES =====
 
 module.exports = router;
