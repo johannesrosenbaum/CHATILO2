@@ -35,6 +35,9 @@ services:
       ALLOWED_ORIGINS: https://www.chatilo.de,https://chatilo.de,http://localhost:3000
       MAX_FILE_SIZE: 10485760
       UPLOAD_PATH: /app/uploads
+      VAPID_PUBLIC_KEY: BPpO9pd7r_WIE5z3TqTqztHFes3KjgU1CBnFghuGhTozNbMah2F3EJJdn4GuQ41kWCqKsGVyahzzQHLhW3G5FPY
+      VAPID_PRIVATE_KEY: ZpVrO64zfbZIeryZDAGmjcSGgVgJqSnU5e9Soliq_kY
+      VAPID_CONTACT_EMAIL: johannes.rosenbaum@chatilo.de
     volumes:
       - ./server/uploads:/app/uploads
       - server_logs:/app/logs

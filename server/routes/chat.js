@@ -19,6 +19,46 @@ const {
 // 🔔 Push Notification Service
 const PushService = require('../services/PushService');
 
+// 🌲 Helper function to build Reddit-style comment tree
+async function buildCommentTree(postId, parentId = null, maxLevel = 3) {
+  const query = {
+    $or: [
+      { threadId: postId, parentMessage: parentId },
+      { parentMessage: postId } // Direct replies to post
+    ],
+    isDeleted: { $ne: true }
+  };
+
+  if (parentId === null) {
+    // Top-level comments (direct replies to post)
+    query.$or = [{ parentMessage: postId }];
+  }
+
+  const comments = await Message.find(query)
+    .populate('sender', 'username avatar')
+    .sort({ createdAt: 1, score: -1 })
+    .limit(maxLevel > 0 ? 100 : 5) // Weniger tiefe Kommentare bei tiefer Verschachtelung
+    .lean();
+
+  // Recursively build tree for each comment
+  const commentsWithReplies = await Promise.all(comments.map(async (comment) => {
+    let replies = [];
+    
+    if (comment.level < maxLevel && comment.childrenCount > 0) {
+      replies = await buildCommentTree(postId, comment._id, maxLevel - 1);
+    }
+
+    return {
+      ...comment,
+      replies: replies,
+      replyCount: comment.childrenCount || 0,
+      netScore: (comment.upvotes?.length || 0) - (comment.downvotes?.length || 0)
+    };
+  }));
+
+  return commentsWithReplies;
+}
+
 // Configure multer for media uploads (images, videos, GIFs)
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -472,41 +512,74 @@ router.get('/rooms/:roomId', async (req, res) => {
   }
 });
 
-// Get chat history for a room
+// 🌲 Get chat history - Reddit-Style Posts & Comments
 router.get('/rooms/:roomId/messages', auth, async (req, res) => {
   try {
     const { roomId } = req.params;
-    const { page = 1, limit = 50 } = req.query;
-    console.log(`📜 [DEBUG] Fetching messages for room: ${roomId}`);
-    console.log(`   Page: ${page}, Limit: ${limit}`);
+    const { page = 1, limit = 20, sortBy = 'latest' } = req.query;
+    console.log(`📜 [DEBUG] Fetching Reddit-style posts for room: ${roomId}`);
+    console.log(`   Page: ${page}, Limit: ${limit}, Sort: ${sortBy}`);
     console.log(`   User: ${req.user.username} (${req.user._id})`);
 
-    const messages = await Message.find({ chatRoom: roomId })
+    // 1. Zuerst alle Posts (Level 0) laden
+    let sortQuery = {};
+    switch (sortBy) {
+      case 'hot':
+        sortQuery = { score: -1, createdAt: -1 };
+        break;
+      case 'top':
+        sortQuery = { score: -1 };
+        break;
+      case 'latest':
+      default:
+        sortQuery = { createdAt: -1 };
+        break;
+    }
+
+    const posts = await Message.find({ 
+      chatRoom: roomId, 
+      isPost: true,
+      isDeleted: { $ne: true }
+    })
       .populate('sender', 'username avatar')
-      .sort({ createdAt: -1 })
+      .sort(sortQuery)
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit))
       .lean();
 
-    const totalMessages = await Message.countDocuments({ chatRoom: roomId });
-    console.log(`   [DEBUG] totalMessages: ${totalMessages}`);
-    console.log(`   [DEBUG] messages.length: ${messages.length}`);
-    if (messages.length > 0) {
-      console.log('   [DEBUG] First message:', messages[0]);
-    } else {
-      console.log('   [DEBUG] No messages found for this room.');
-    }
+    console.log(`   [DEBUG] Found ${posts.length} posts`);
 
-    // Reverse messages für chronologische Reihenfolge (älteste zuerst)
-    const reversedMessages = messages.reverse();
+    // 2. Für jeden Post die Kommentare laden (hierarchisch)
+    const postsWithComments = await Promise.all(posts.map(async (post) => {
+      const comments = await buildCommentTree(post._id);
+      
+      return {
+        ...post,
+        comments: comments,
+        commentCount: await Message.countDocuments({ 
+          threadId: post._id,
+          isPost: false,
+          isDeleted: { $ne: true }
+        })
+      };
+    }));
+
+    const totalPosts = await Message.countDocuments({ 
+      chatRoom: roomId, 
+      isPost: true,
+      isDeleted: { $ne: true }
+    });
+
+    console.log(`   [DEBUG] totalPosts: ${totalPosts}`);
+    console.log(`   [DEBUG] postsWithComments.length: ${postsWithComments.length}`);
     
     res.json({
-      messages: reversedMessages,
+      posts: postsWithComments,
       pagination: {
         currentPage: parseInt(page),
-        totalPages: Math.ceil(totalMessages / parseInt(limit)),
-        totalMessages,
-        hasNextPage: (parseInt(page) * parseInt(limit)) < totalMessages,
+        totalPages: Math.ceil(totalPosts / parseInt(limit)),
+        totalPosts,
+        hasNextPage: (parseInt(page) * parseInt(limit)) < totalPosts,
         hasPreviousPage: parseInt(page) > 1
       }
     });
@@ -520,25 +593,61 @@ router.get('/rooms/:roomId/messages', auth, async (req, res) => {
   }
 });
 
-// Nachricht in einen Raum senden
+// 🌲 Post/Kommentar in einen Raum senden (Reddit-Style)
 router.post('/rooms/:roomId/messages', auth, async (req, res) => {
   try {
     const { roomId } = req.params;
-    const { content, type = 'text' } = req.body;
+    const { content, type = 'text', parentMessageId, replyToUser } = req.body;
     const userId = req.user._id;
 
     if (!content || !roomId) {
       return res.status(400).json({ error: 'Content and roomId are required' });
     }
 
-    // Erstelle die Nachricht
-    const message = await Message.create({
+    let messageData = {
       content,
       type,
       sender: userId,
       chatRoom: roomId,
       createdAt: new Date()
-    });
+    };
+
+    // 🌲 Kommentar-Logik: Parent-Child-Beziehung
+    if (parentMessageId) {
+      const parentMessage = await Message.findById(parentMessageId);
+      if (!parentMessage) {
+        return res.status(404).json({ error: 'Parent message not found' });
+      }
+
+      // Bestimme Level und ThreadId
+      messageData.parentMessage = parentMessageId;
+      messageData.level = parentMessage.level + 1;
+      messageData.threadId = parentMessage.threadId || parentMessage._id;
+      messageData.isPost = false;
+
+      // Maximale Verschachtelungstiefe prüfen
+      if (messageData.level > 10) {
+        return res.status(400).json({ error: 'Maximum nesting level reached' });
+      }
+
+      // Parent Message childrenCount erhöhen
+      await Message.findByIdAndUpdate(parentMessageId, {
+        $inc: { childrenCount: 1 }
+      });
+    } else {
+      // Neuer Post
+      messageData.isPost = true;
+      messageData.level = 0;
+    }
+
+    // Erstelle die Nachricht
+    const message = await Message.create(messageData);
+
+    // ThreadId für neue Posts setzen
+    if (messageData.isPost) {
+      message.threadId = message._id;
+      await message.save();
+    }
 
     // Optional: Nachricht mit Userdaten zurückgeben
     await message.populate('sender', 'username avatar');
@@ -1196,6 +1305,191 @@ router.post('/push/test', auth, async (req, res) => {
   }
 });
 
-// ===== END PUSH NOTIFICATION ROUTES =====
+// ===== REDDIT-STYLE VOTING & COMMENTS =====
+
+// 👍 Upvote/Downvote a message
+router.post('/messages/:messageId/vote', auth, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { voteType } = req.body; // 'up', 'down', 'remove'
+    const userId = req.user._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    // Remove existing votes first
+    message.upvotes = message.upvotes.filter(vote => !vote.user.equals(userId));
+    message.downvotes = message.downvotes.filter(vote => !vote.user.equals(userId));
+
+    // Add new vote
+    if (voteType === 'up') {
+      message.upvotes.push({ user: userId, timestamp: new Date() });
+    } else if (voteType === 'down') {
+      message.downvotes.push({ user: userId, timestamp: new Date() });
+    }
+
+    // Update score
+    message.score = message.upvotes.length - message.downvotes.length;
+    await message.save();
+
+    res.json({
+      success: true,
+      score: message.score,
+      upvotes: message.upvotes.length,
+      downvotes: message.downvotes.length,
+      userVote: voteType === 'remove' ? null : voteType
+    });
+
+  } catch (error) {
+    console.error('❌ Error voting:', error);
+    res.status(500).json({ error: 'Failed to vote', details: error.message });
+  }
+});
+
+// 💬 Reply to a message (create comment)
+router.post('/messages/:messageId/reply', auth, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { content } = req.body;
+    const userId = req.user._id;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Content is required' });
+    }
+
+    const parentMessage = await Message.findById(messageId);
+    if (!parentMessage) {
+      return res.status(404).json({ error: 'Parent message not found' });
+    }
+
+    // Create reply
+    const replyData = {
+      content: content.trim(),
+      sender: userId,
+      chatRoom: parentMessage.chatRoom,
+      parentMessage: messageId,
+      level: parentMessage.level + 1,
+      threadId: parentMessage.threadId || parentMessage._id,
+      isPost: false
+    };
+
+    if (replyData.level > 10) {
+      return res.status(400).json({ error: 'Maximum nesting level reached' });
+    }
+
+    const reply = await Message.create(replyData);
+    await reply.populate('sender', 'username avatar');
+
+    // Update parent's children count
+    await Message.findByIdAndUpdate(messageId, {
+      $inc: { childrenCount: 1 }
+    });
+
+    res.json({
+      success: true,
+      reply: reply
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating reply:', error);
+    res.status(500).json({ error: 'Failed to create reply', details: error.message });
+  }
+});
+
+// 🔗 Get single message thread
+router.get('/messages/:messageId/thread', auth, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    
+    const message = await Message.findById(messageId)
+      .populate('sender', 'username avatar')
+      .lean();
+      
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    // If it's a comment, get the root post
+    let rootPost = message;
+    if (!message.isPost) {
+      rootPost = await Message.findById(message.threadId)
+        .populate('sender', 'username avatar')
+        .lean();
+    }
+
+    // Build comment tree
+    const comments = await buildCommentTree(rootPost._id);
+
+    res.json({
+      success: true,
+      post: rootPost,
+      comments: comments,
+      focusedMessage: message.isPost ? null : message
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching thread:', error);
+    res.status(500).json({ error: 'Failed to fetch thread', details: error.message });
+  }
+});
+
+// 💬 Reply to a message/post
+router.post('/messages/:messageId/reply', auth, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { content } = req.body;
+    const userId = req.user.id || req.user._id;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Content is required' });
+    }
+
+    // Find parent message
+    const parentMessage = await Message.findById(messageId);
+    if (!parentMessage) {
+      return res.status(404).json({ error: 'Parent message not found' });
+    }
+
+    // Determine level and threadId
+    const level = Math.min(parentMessage.level + 1, 10);
+    const threadId = parentMessage.threadId || parentMessage._id;
+
+    // Create reply
+    const reply = new Message({
+      content: content.trim(),
+      sender: userId,
+      chatRoom: parentMessage.chatRoom,
+      parentMessage: messageId,
+      level: level,
+      threadId: threadId,
+      isPost: false
+    });
+
+    await reply.save();
+
+    // Update parent's children count
+    await Message.findByIdAndUpdate(messageId, {
+      $inc: { childrenCount: 1 }
+    });
+
+    // Populate reply for response
+    await reply.populate('sender', 'username avatar');
+
+    console.log(`💬 Reply created: ${reply._id} -> parent: ${messageId}, level: ${level}`);
+
+    res.status(201).json({
+      success: true,
+      message: reply
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating reply:', error);
+    res.status(500).json({ error: 'Failed to create reply', details: error.message });
+  }
+});
+
+// ===== END REDDIT-STYLE FEATURES =====
 
 module.exports = router;

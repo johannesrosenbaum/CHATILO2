@@ -5,37 +5,57 @@ import {
   Button,
   Paper,
   Typography,
-  List,
-  ListItem,
-  ListItemText,
   Avatar,
   Chip,
-  IconButton
+  IconButton,
+  Tabs,
+  Tab,
+  CircularProgress,
+  Menu,
+  MenuItem
 } from '@mui/material';
-import { Send as SendIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import { 
+  Send as SendIcon, 
+  ArrowBack as ArrowBackIcon,
+  Sort as SortIcon,
+  Add as AddIcon
+} from '@mui/icons-material';
 import { useSocket } from '../contexts/SocketContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import { formatMessageTime } from '../utils/dateUtils';
+import api from '../services/api';
+import RedditPost from './RedditPost';
 import FavoriteButton from './FavoriteButton';
 import { getAvatarUrl } from '../utils/avatarUtils';
+import RedditPost from './RedditPost';
+import api from '../services/api';
 
 const ChatRoom: React.FC = () => {
-  console.log('🔧 ChatRoom component rendering... NEW LAYOUT ACTIVE!!! 🎨'); // <- GEÄNDERT
+  console.log('🌲 ChatRoom component rendering... REDDIT-STYLE ACTIVE!!! 🎨');
   
   const navigate = useNavigate();
   const { roomId } = useParams<{ roomId: string }>();
   const { 
     socket, 
-    messages, 
     currentRoom, 
     joinRoom, 
-    sendMessage, 
     user,
     chatRooms 
   } = useSocket();
   
-  const [inputMessage, setInputMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  // Reddit-Style State
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [newPostContent, setNewPostContent] = useState('');
+  const [showNewPost, setShowNewPost] = useState(false);
+  const [sortBy, setSortBy] = useState('latest');
+  const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    hasNextPage: false
+  });
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   console.log('🔧 ChatRoom State:');
@@ -53,22 +73,73 @@ const ChatRoom: React.FC = () => {
 
   console.log('🔧 Current room info:', currentRoomInfo?.name);
 
-  // Join room on mount or room change
+  // Join room and load posts
   useEffect(() => {
     if (roomId && socket) {
       console.log('🚪 ChatRoom component: Joining room', roomId);
-      joinRoom(roomId); // 🔥 Direkte Verwendung ohne Normalisierung
+      joinRoom(roomId);
+      loadPosts();
     }
-  }, [roomId, socket, joinRoom]);
+  }, [roomId, socket, joinRoom, sortBy]);
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  // Load Reddit-style posts
+  const loadPosts = async (page = 1) => {
+    if (!roomId) return;
+    
+    setLoading(true);
+    try {
+      console.log(`🌲 Loading posts for room ${roomId}, sort: ${sortBy}, page: ${page}`);
+      
+      const response = await api.get(`/api/chat/rooms/${roomId}/messages`, {
+        params: { page, limit: 20, sortBy }
+      });
+
+      const { posts: newPosts, pagination: newPagination } = response.data;
+      
+      if (page === 1) {
+        setPosts(newPosts);
+      } else {
+        setPosts(prev => [...prev, ...newPosts]);
+      }
+      
+      setPagination(newPagination);
+      console.log(`🌲 Loaded ${newPosts.length} posts, total pages: ${newPagination.totalPages}`);
+      
+    } catch (error) {
+      console.error('❌ Error loading posts:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [messages]);
+  };
 
-  // Handle message input
+  // Handle creating a new post
+  const handleCreatePost = async () => {
+    if (newPostContent.trim() === '' || !user || !roomId) return;
+
+    setLoading(true);
+    try {
+      console.log('📝 Creating new post:', newPostContent);
+      
+      const response = await api.post(`/api/chat/rooms/${roomId}/messages`, {
+        content: newPostContent,
+        isPost: true
+      });
+
+      const newPost = response.data;
+      setPosts(prev => [newPost, ...prev]);
+      setNewPostContent('');
+      setShowNewPost(false);
+      
+      console.log('✅ Post created successfully');
+      
+    } catch (error) {
+      console.error('❌ Error creating post:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle message input (legacy - keep for backward compatibility)
   const handleSendMessage = () => {
     if (!inputMessage.trim() || !currentRoom) return;
     console.log('📤 ChatRoom: Sending message:', inputMessage);
@@ -86,6 +157,94 @@ const ChatRoom: React.FC = () => {
 
   const handleBack = () => {
     navigate('/chat');
+  };
+
+  // Sort menu handlers
+  const handleSortClick = (event: React.MouseEvent<HTMLElement>) => {
+    setSortAnchorEl(event.currentTarget);
+  };
+
+  const handleSortClose = () => {
+    setSortAnchorEl(null);
+  };
+
+  const handleSortChange = (newSort: string) => {
+    setSortBy(newSort);
+    setSortAnchorEl(null);
+    setPagination({ currentPage: 1, totalPages: 1, hasNextPage: false });
+  };
+
+  // Post interaction handlers
+  const handleVote = async (messageId: string, voteType: 'up' | 'down') => {
+    try {
+      const response = await api.post(`/api/chat/messages/${messageId}/vote`, {
+        voteType
+      });
+      
+      // Update the post in state
+      setPosts(prev => prev.map(post => {
+        if (post._id === messageId) {
+          return { ...post, ...response.data };
+        }
+        return updatePostRecursive(post, messageId, response.data);
+      }));
+      
+    } catch (error) {
+      console.error('❌ Error voting:', error);
+    }
+  };
+
+  const handleReply = async (parentId: string, content: string) => {
+    try {
+      const response = await api.post(`/api/chat/messages/${parentId}/reply`, {
+        content
+      });
+      
+      // Update the post with new reply
+      setPosts(prev => prev.map(post => {
+        if (post._id === parentId) {
+          return {
+            ...post,
+            children: [...(post.children || []), response.data],
+            childrenCount: (post.childrenCount || 0) + 1
+          };
+        }
+        return updatePostRecursive(post, parentId, null, response.data);
+      }));
+      
+    } catch (error) {
+      console.error('❌ Error replying:', error);
+    }
+  };
+
+  // Helper function to update posts recursively
+  const updatePostRecursive = (post: any, targetId: string, update?: any, newReply?: any): any => {
+    if (post._id === targetId) {
+      if (update) return { ...post, ...update };
+      if (newReply) return {
+        ...post,
+        children: [...(post.children || []), newReply],
+        childrenCount: (post.childrenCount || 0) + 1
+      };
+    }
+    
+    if (post.children?.length) {
+      return {
+        ...post,
+        children: post.children.map((child: any) => 
+          updatePostRecursive(child, targetId, update, newReply)
+        )
+      };
+    }
+    
+    return post;
+  };
+
+  // Load more posts (pagination)
+  const handleLoadMore = () => {
+    if (pagination.hasNextPage && !loading) {
+      loadPosts(pagination.currentPage + 1);
+    }
   };
 
   // Format timestamp
@@ -209,489 +368,191 @@ const ChatRoom: React.FC = () => {
   }
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'white' }}>
-      {/* ✨ CI-KONFORMES HEADER MIT WEISSEM HINTERGRUND */}
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#f8fafc' }}>
+      {/* Reddit-Style Header */}
       <Paper 
         elevation={0} 
         sx={{ 
-          p: 2.5, 
+          p: 2, 
           borderRadius: 0,
           background: 'white',
-          borderTop: '4px solid transparent',
-          borderImage: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%) 1',
-          boxShadow: '0 2px 8px rgba(102, 126, 234, 0.15)',
-          position: 'relative',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '4px',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            borderRadius: '0'
-          }
+          borderBottom: '1px solid #e2e8f0',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <IconButton 
             onClick={handleBack} 
             edge="start" 
-            sx={{ 
-              color: '#667eea',
-              '&:hover': {
-                bgcolor: 'rgba(102, 126, 234, 0.08)',
-                transform: 'scale(1.05)'
-              },
-              transition: 'all 0.2s ease'
-            }}
+            sx={{ color: '#667eea' }}
           >
             <ArrowBackIcon />
           </IconButton>
           
-          {/* Room Avatar mit CI-Gradient */}
           <Avatar
             sx={{
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              border: '2px solid rgba(102, 126, 234, 0.2)',
-              width: 44,
-              height: 44,
-              fontSize: '1.2rem',
+              width: 40,
+              height: 40,
+              fontSize: '1rem',
               fontWeight: 'bold',
-              color: 'white',
-              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+              color: 'white'
             }}
           >
             {currentRoomInfo?.name?.charAt(0).toUpperCase() || 'R'}
           </Avatar>
           
           <Box sx={{ flexGrow: 1 }}>
-            <Typography 
-              variant="h6" 
-              noWrap 
-              sx={{ 
-                fontWeight: 600,
-                color: '#2d3748',
-                fontSize: '1.1rem'
-              }}
-            >
-              {currentRoomInfo?.name || 'Chat Room'}
+            <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a202c' }}>
+              r/{currentRoomInfo?.name || 'chatroom'}
             </Typography>
-            <Typography 
-              variant="caption" 
-              sx={{ 
-                color: '#718096',
-                fontSize: '0.85rem'
-              }}
-            >
-              {currentRoomInfo?.participants || 0} Teilnehmer • {activeRoom ? 'Online' : 'Verbindung...'}
+            <Typography variant="caption" sx={{ color: '#718096' }}>
+              {posts.length} posts • {activeRoom ? 'Live' : 'Connecting...'}
             </Typography>
           </Box>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Chip 
-              label={activeRoom ? 'Verbunden' : 'Verbindung...'}
-              size="small"
-              sx={{
-                bgcolor: activeRoom ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)',
-                color: activeRoom ? '#2e7d32' : '#f57c00',
-                border: `1px solid ${activeRoom ? 'rgba(76, 175, 80, 0.3)' : 'rgba(255, 152, 0, 0.3)'}`,
-                fontWeight: 500
-              }}
-            />
-            {currentRoomInfo && (
-              <FavoriteButton 
-                roomId={currentRoomInfo._id || currentRoomInfo.id || ''} 
-                roomName={currentRoomInfo.name}
-                size="small"
-              />
-            )}
-          </Box>
+
+          {/* Sort Menu */}
+          <IconButton onClick={handleSortClick} sx={{ color: '#4a5568' }}>
+            <SortIcon />
+          </IconButton>
+          <Menu
+            anchorEl={sortAnchorEl}
+            open={Boolean(sortAnchorEl)}
+            onClose={handleSortClose}
+          >
+            <MenuItem onClick={() => handleSortChange('latest')} selected={sortBy === 'latest'}>
+              🕒 Latest
+            </MenuItem>
+            <MenuItem onClick={() => handleSortChange('hot')} selected={sortBy === 'hot'}>
+              🔥 Hot
+            </MenuItem>
+            <MenuItem onClick={() => handleSortChange('top')} selected={sortBy === 'top'}>
+              ⭐ Top
+            </MenuItem>
+          </Menu>
+
+          {/* New Post Button */}
+          <IconButton 
+            onClick={() => setShowNewPost(!showNewPost)}
+            sx={{ 
+              bgcolor: '#667eea', 
+              color: 'white',
+              '&:hover': { bgcolor: '#5a6fd8' }
+            }}
+          >
+            <AddIcon />
+          </IconButton>
         </Box>
+
+        {/* New Post Form */}
+        {showNewPost && (
+          <Box sx={{ mt: 2, p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              value={newPostContent}
+              onChange={(e) => setNewPostContent(e.target.value)}
+              placeholder="Was möchtest du diskutieren?"
+              variant="outlined"
+              sx={{ mb: 2 }}
+            />
+            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+              <Button onClick={() => setShowNewPost(false)} variant="outlined">
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleCreatePost} 
+                variant="contained"
+                disabled={!newPostContent.trim() || loading}
+                sx={{ bgcolor: '#667eea', '&:hover': { bgcolor: '#5a6fd8' } }}
+              >
+                Post
+              </Button>
+            </Box>
+          </Box>
+        )}
       </Paper>
 
-      {/* ✨ CLEAN WHITE MESSAGES AREA */}
+      {/* Reddit-Style Feed */}
       <Box sx={{ 
         flexGrow: 1, 
         overflow: 'auto', 
-        p: 2,
-        bgcolor: 'white',
-        position: 'relative'
+        bgcolor: '#f8fafc'
       }}>
-        
-        {/* Subtle CI Accent Pattern */}
-        <Box sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          opacity: 0.02,
-          background: `
-            radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, rgba(118, 75, 162, 0.1) 0%, transparent 50%),
-            radial-gradient(circle at 40% 80%, rgba(102, 126, 234, 0.1) 0%, transparent 50%)
-          `,
-          pointerEvents: 'none'
-        }} />
-        
-        {!shouldShowMessages ? (
+        {loading && posts.length === 0 ? (
           <Box sx={{ 
             display: 'flex', 
             justifyContent: 'center', 
             alignItems: 'center', 
-            height: '100%',
-            flexDirection: 'column',
-            gap: 3,
-            position: 'relative',
-            zIndex: 1
+            height: '200px'
           }}>
-            {/* Welcome Animation */}
-            <Box sx={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              borderRadius: '50%',
-              width: 80,
-              height: 80,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              animation: 'pulse 2s ease-in-out infinite',
-              '@keyframes pulse': {
-                '0%': { transform: 'scale(1)', opacity: 0.7 },
-                '50%': { transform: 'scale(1.05)', opacity: 1 },
-                '100%': { transform: 'scale(1)', opacity: 0.7 }
-              }
-            }}>
-              <Typography variant="h3" sx={{ color: 'white' }}>
-                💬
-              </Typography>
-            </Box>
-            
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h5" sx={{ fontWeight: 600, color: '#2d3748', mb: 1 }}>
-                {effectiveRoom ? 'Willkommen im Chat!' : 'Verbindung wird hergestellt...'}
-              </Typography>
-              <Typography variant="body1" sx={{ color: '#718096' }}>
-                {effectiveRoom 
-                  ? 'Schreibe die erste Nachricht und starte die Unterhaltung!' 
-                  : `Raum: ${roomId || 'Unbekannt'}`
-                }
-              </Typography>
-            </Box>
+            <CircularProgress />
+          </Box>
+        ) : posts.length === 0 ? (
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '300px',
+            textAlign: 'center',
+            p: 3
+          }}>
+            <Typography variant="h5" sx={{ color: '#4a5568', mb: 2, fontWeight: 600 }}>
+              🌟 Sei der Erste!
+            </Typography>
+            <Typography variant="body1" sx={{ color: '#718096', mb: 3 }}>
+              Erstelle den ersten Post und starte die Diskussion in diesem Raum.
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={() => setShowNewPost(true)}
+              sx={{ 
+                bgcolor: '#667eea', 
+                '&:hover': { bgcolor: '#5a6fd8' },
+                borderRadius: 3,
+                px: 3
+              }}
+            >
+              Ersten Post erstellen
+            </Button>
           </Box>
         ) : (
-          // ✨ CLEAN WHITE MESSAGE BUBBLES
-          <Box sx={{ position: 'relative', zIndex: 1 }}>
-            {messages.map((message, index) => {
-              const { username: displayUsername, userId: msgUserId } = getUserDisplayInfo(message);
-              const isOwn = isOwnMessage(message);
-              
-              console.log('🎨 RENDERING message bubble:', {
-                index,
-                content: message.content.substring(0, 20) + '...',
-                displayUsername,
-                isOwn,
-                currentUser: user?.username
-              });
-
-              return (
-                <Box
-                  key={message._id || message.id || `msg-${index}`}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: isOwn ? 'flex-end' : 'flex-start',
-                    mb: 2,
-                    px: 1,
-                    // 🔥 SMOOTH ANIMATION
-                    animation: 'slideIn 0.3s ease-out',
-                    '@keyframes slideIn': {
-                      '0%': { 
-                        opacity: 0, 
-                        transform: isOwn ? 'translateX(20px)' : 'translateX(-20px)',
-                        scale: 0.95
-                      },
-                      '100%': { 
-                        opacity: 1, 
-                        transform: 'translateX(0px)',
-                        scale: 1
-                      }
-                    }
+          <Box sx={{ maxWidth: '800px', mx: 'auto', p: 2 }}>
+            {/* Posts Feed */}
+            {posts.map((post) => (
+              <RedditPost
+                key={post._id}
+                post={post}
+                onVote={handleVote}
+                onReply={handleReply}
+                currentUser={user}
+              />
+            ))}
+            
+            {/* Load More Button */}
+            {pagination.hasNextPage && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                <Button 
+                  onClick={handleLoadMore}
+                  disabled={loading}
+                  variant="outlined"
+                  sx={{ 
+                    borderRadius: 3,
+                    px: 4,
+                    py: 1
                   }}
                 >
-                  {/* Avatar für fremde Messages (links) mit CI-Design */}
-                  {!isOwn && (
-                    <Avatar
-                      sx={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        width: 36,
-                        height: 36,
-                        fontSize: '0.9rem',
-                        mr: 1.5,
-                        alignSelf: 'flex-end',
-                        border: '2px solid white',
-                        boxShadow: '0 3px 12px rgba(102, 126, 234, 0.3)',
-                        color: 'white',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      {displayUsername.charAt(0).toUpperCase()}
-                    </Avatar>
-                  )}
-                  
-                  {/* ✨ CLEAN WHITE MESSAGE BUBBLE */}
-                  <Box
-                    sx={{
-                      maxWidth: '75%',
-                      minWidth: '100px',
-                      position: 'relative'
-                    }}
-                  >
-                    {/* Message Bubble */}
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        p: 2,
-                        position: 'relative',
-                        background: isOwn 
-                          ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                          : 'white',
-                        color: isOwn ? 'white' : '#2d3748',
-                        borderRadius: '18px',
-                        boxShadow: isOwn 
-                          ? '0 4px 20px rgba(102, 126, 234, 0.25)'
-                          : '0 2px 12px rgba(0,0,0,0.08)',
-                        border: isOwn ? 'none' : '1px solid rgba(102, 126, 234, 0.1)',
-                        // Message tail
-                        '&::before': {
-                          content: '""',
-                          position: 'absolute',
-                          bottom: '8px',
-                          [isOwn ? 'right' : 'left']: '-6px',
-                          width: 0,
-                          height: 0,
-                          borderLeft: isOwn ? '6px solid transparent' : 'none',
-                          borderRight: isOwn ? 'none' : '6px solid transparent',
-                          borderTop: `6px solid ${isOwn ? '#667eea' : 'white'}`,
-                          filter: isOwn ? 'none' : 'drop-shadow(-1px -1px 2px rgba(102, 126, 234, 0.1))'
-                        },
-                        // Hover effect
-                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                        '&:hover': {
-                          transform: 'translateY(-1px)',
-                          boxShadow: isOwn 
-                            ? '0 6px 25px rgba(102, 126, 234, 0.35)'
-                            : '0 4px 18px rgba(102, 126, 234, 0.15)'
-                        }
-                      }}
-                    >
-                      {/* Username nur bei fremden Messages */}
-                      {!isOwn && (
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            fontWeight: 600,
-                            color: '#667eea',
-                            display: 'block',
-                            mb: 0.5,
-                            fontSize: '0.75rem'
-                          }}
-                        >
-                          {displayUsername}
-                        </Typography>
-                      )}
-                      
-                      {/* Message Content */}
-                      <Typography 
-                        variant="body1" 
-                        sx={{ 
-                          wordBreak: 'break-word',
-                          lineHeight: 1.4,
-                          fontSize: '0.95rem',
-                          fontWeight: 400
-                        }}
-                      >
-                        {message.content}
-                      </Typography>
-                      
-                      {/* Timestamp + Status */}
-                      <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center',
-                        justifyContent: isOwn ? 'flex-end' : 'flex-start',
-                        mt: 0.5,
-                        gap: 0.5
-                      }}>
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            opacity: 0.7,
-                            fontSize: '0.7rem',
-                            fontWeight: 500
-                          }}
-                        >
-                          {formatMessageTime(message.timestamp || message.createdAt)}
-                        </Typography>
-                        
-                        {/* Message Status (nur für eigene Nachrichten) */}
-                        {isOwn && (
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center',
-                            opacity: 0.8
-                          }}>
-                            <Typography sx={{ fontSize: '0.8rem' }}>✓✓</Typography>
-                          </Box>
-                        )}
-                      </Box>
-                    </Paper>
-                  </Box>
-
-                  {/* Avatar für eigene Messages (rechts) */}
-                  {isOwn && (
-                    <Avatar
-                      sx={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        width: 36,
-                        height: 36,
-                        fontSize: '0.9rem',
-                        ml: 1.5,
-                        alignSelf: 'flex-end',
-                        border: '2px solid white',
-                        boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)'
-                      }}
-                    >
-                      {user?.username?.charAt(0).toUpperCase() || 'I'}
-                    </Avatar>
-                  )}
-                </Box>
-              );
-            })}
-            <div ref={messagesEndRef} />
+                  {loading ? <CircularProgress size={20} /> : 'Mehr laden'}
+                </Button>
+              </Box>
+            )}
           </Box>
         )}
       </Box>
-
-      {/* ✨ CLEAN WHITE MESSAGE INPUT */}
-      <Paper 
-        elevation={0} 
-        sx={{ 
-          p: 2.5, 
-          borderRadius: 0,
-          background: 'white',
-          borderTop: '1px solid rgba(102, 126, 234, 0.1)',
-          boxShadow: '0 -4px 20px rgba(102, 126, 234, 0.08)'
-        }}
-      >
-        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
-          <TextField
-            fullWidth
-            multiline
-            maxRows={4}
-            value={inputMessage}
-            onChange={(e) => {
-              setInputMessage(e.target.value);
-              setIsTyping(e.target.value.length > 0);
-            }}
-            onKeyPress={handleKeyPress}
-            placeholder={`Nachricht an ${currentRoomInfo?.name || 'Chat Room'}...`}
-            variant="outlined"
-            disabled={!activeRoom}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: '25px',
-                backgroundColor: 'white',
-                border: '2px solid rgba(102, 126, 234, 0.1)',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  backgroundColor: 'white',
-                  border: '2px solid rgba(102, 126, 234, 0.2)'
-                },
-                '&.Mui-focused': {
-                  backgroundColor: 'white',
-                  border: '2px solid #667eea',
-                  boxShadow: '0 0 0 3px rgba(102, 126, 234, 0.1)'
-                },
-                '& fieldset': { border: 'none' }
-              },
-              '& .MuiInputBase-input': {
-                fontSize: '0.95rem',
-                py: 1.5,
-                px: 2,
-                color: '#2d3748'
-              },
-              '& .MuiInputBase-input::placeholder': {
-                color: '#a0aec0',
-                opacity: 1
-              }
-            }}
-          />
-          
-          <IconButton
-            onClick={handleSendMessage}
-            disabled={!inputMessage.trim() || !activeRoom}
-            sx={{
-              background: inputMessage.trim() && activeRoom 
-                ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                : 'linear-gradient(135deg, #e0e0e0 0%, #bdbdbd 100%)',
-              color: 'white',
-              width: 50,
-              height: 50,
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                background: inputMessage.trim() && activeRoom 
-                  ? 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)'
-                  : 'linear-gradient(135deg, #d0d0d0 0%, #a0a0a0 100%)',
-                transform: 'scale(1.05)'
-              },
-              '&:active': {
-                transform: 'scale(0.95)'
-              }
-            }}
-          >
-            <SendIcon />
-          </IconButton>
-        </Box>
-        
-        {/* Status Messages */}
-        <Box sx={{ mt: 1, minHeight: '20px' }}>
-          {isTyping && activeRoom && (
-            <Typography 
-              variant="caption" 
-              sx={{ 
-                color: '#667eea',
-                fontWeight: 500,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5
-              }}
-            >
-              <Box sx={{
-                width: 4,
-                height: 4,
-                borderRadius: '50%',
-                bgcolor: '#667eea',
-                animation: 'typing 1.4s ease-in-out infinite'
-              }} />
-              Nachricht wird eingegeben...
-            </Typography>
-          )}
-          
-          {!activeRoom && (
-            <Typography 
-              variant="caption" 
-              sx={{ 
-                color: '#f44336',
-                fontWeight: 500,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5
-              }}
-            >
-              ⚠️ Nicht mit dem Raum verbunden
-            </Typography>
-          )}
-        </Box>
-      </Paper>
     </Box>
   );
 };
