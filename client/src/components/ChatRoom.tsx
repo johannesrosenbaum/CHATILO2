@@ -27,8 +27,6 @@ import api from '../services/api';
 import RedditPost from './RedditPost';
 import FavoriteButton from './FavoriteButton';
 import { getAvatarUrl } from '../utils/avatarUtils';
-import RedditPost from './RedditPost';
-import api from '../services/api';
 
 const ChatRoom: React.FC = () => {
   console.log('🌲 ChatRoom component rendering... REDDIT-STYLE ACTIVE!!! 🎨');
@@ -61,7 +59,7 @@ const ChatRoom: React.FC = () => {
   console.log('🔧 ChatRoom State:');
   console.log('   roomId from URL:', roomId);
   console.log('   currentRoom:', currentRoom);
-  console.log('   messages count:', messages?.length || 0);
+  console.log('   posts count:', posts?.length || 0);
   console.log('   user:', user?.username);
   console.log('   socket connected:', !!socket);
 
@@ -139,21 +137,7 @@ const ChatRoom: React.FC = () => {
     }
   };
 
-  // Handle message input (legacy - keep for backward compatibility)
-  const handleSendMessage = () => {
-    if (!inputMessage.trim() || !currentRoom) return;
-    console.log('📤 ChatRoom: Sending message:', inputMessage);
-    sendMessage(inputMessage.trim());
-    setInputMessage('');
-    setIsTyping(false);
-  };
-
-  const handleKeyPress = (event: React.KeyboardEvent) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      handleSendMessage();
-    }
-  };
+  // Removed legacy message handling functions - now using Reddit-style posts
 
   const handleBack = () => {
     navigate('/chat');
@@ -346,18 +330,18 @@ const ChatRoom: React.FC = () => {
   console.log('   currentRoom from context:', currentRoom);
   console.log('   roomId from URL:', roomId);
   console.log('   activeRoom (final):', activeRoom);
-  console.log('   messages available:', messages?.length || 0);
+  console.log('   posts available:', posts?.length || 0);
 
   // 🔥 KORRIGIERTE MESSAGE DARSTELLUNG - AUCH OHNE currentRoom
-  const shouldShowMessages = messages && messages.length > 0;
+  const shouldShowPosts = posts && posts.length > 0;
   const effectiveRoom = currentRoom || roomId; // Fallback auf roomId
 
   console.log('🔧 ChatRoom MESSAGE DISPLAY LOGIC:');
-  console.log('   messages.length:', messages?.length || 0);
+  console.log('   posts.length:', posts?.length || 0);
   console.log('   currentRoom:', currentRoom);
   console.log('   roomId from URL:', roomId);
   console.log('   effectiveRoom:', effectiveRoom);
-  console.log('   shouldShowMessages:', shouldShowMessages);
+  console.log('   shouldShowPosts:', shouldShowPosts);
 
   if (!socket) {
     return (
@@ -529,7 +513,7 @@ const ChatRoom: React.FC = () => {
                 post={post}
                 onVote={handleVote}
                 onReply={handleReply}
-                currentUser={user}
+                currentUserId={user?._id}
               />
             ))}
             

@@ -144,7 +144,7 @@ const RedditPost: React.FC<RedditPostProps> = ({
           {/* Comment Header */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <Avatar
-              src={getAvatarUrl(comment.sender)}
+              src={getAvatarUrl(comment.sender.avatar || comment.sender._id)}
               sx={{ width: 24, height: 24 }}
             >
               {comment.sender.username.charAt(0).toUpperCase()}
@@ -271,7 +271,7 @@ const RedditPost: React.FC<RedditPostProps> = ({
       <Box sx={{ p: 2, pb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
           <Avatar
-            src={getAvatarUrl(post.sender)}
+            src={getAvatarUrl(post.sender.avatar || post.sender._id)}
             sx={{ width: 40, height: 40 }}
           >
             {post.sender.username.charAt(0).toUpperCase()}
