@@ -82,7 +82,7 @@ self.addEventListener('pushsubscriptionchange', function(event) {
   event.waitUntil(
     self.registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: 'BNpQ9_example_public_key' // Wird durch echten Key ersetzt
+      applicationServerKey: 'BPpO9pd7r_WIE5z3TqTqztHFes3KjgU1CBnFghuGhTozNbMah2F3EJJdn4GuQ41kWCqKsGVyahzzQHLhW3G5FPY'
     }).then(function(newSubscription) {
       console.log('✅ [SW] New subscription created');
       

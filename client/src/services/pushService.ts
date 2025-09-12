@@ -1,8 +1,8 @@
 // Push Notification Service für Frontend
 import api from './api';
 
-// VAPID Public Key (muss aus .env oder Config kommen)
-const VAPID_PUBLIC_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY || 'BNpQ9_example_public_key';
+// VAPID Public Key (aus .env)
+const VAPID_PUBLIC_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY || 'BPpO9pd7r_WIE5z3TqTqztHFes3KjgU1CBnFghuGhTozNbMah2F3EJJdn4GuQ41kWCqKsGVyahzzQHLhW3G5FPY';
 
 class PushNotificationService {
   public isSupported: boolean;
