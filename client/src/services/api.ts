@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Configure axios base URL for API calls
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:1113';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://chatilo.de';
 
 // Create axios instance with base configuration
 const api = axios.create({

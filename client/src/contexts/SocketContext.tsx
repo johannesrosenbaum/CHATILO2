@@ -146,7 +146,7 @@ export const SocketProvider = ({ children, roomId }: SocketProviderProps) => {
   const [isRoomsLoading, setIsRoomsLoading] = useState<boolean>(false);
 
   // Socket-URL für Entwicklung und Produktion
-  const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:1113';
+  const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'https://chatilo.de';
   console.log('🌐 [DEBUG] SOCKET_URL:', SOCKET_URL);
 
   // API-URL immer relativ
