@@ -334,10 +334,10 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
       // LOCATION MAPPING: Unterstütze beide Formate - KEIN TYPE CONFLICT
       location: room.location ? {
         type: room.location.type || 'Point',
-        coordinates: room.location.coordinates || [
+        coordinates: (room.location.coordinates || [
           room.location.longitude || 0, 
           room.location.latitude || 0
-        ],
+        ]) as [number, number],
         address: room.location.address,
         city: room.location.city,
         radius: room.location.radius,
