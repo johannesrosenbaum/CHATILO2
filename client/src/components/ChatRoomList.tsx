@@ -326,7 +326,7 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
       subType: (room.subType || 'neighborhood') as 'regional' | 'city' | 'neighborhood' | 'general' | 'university' | 'primary' | 'secondary' | undefined,
       participants: room.participants || 0,
       distance: room.distance || 0,
-      event: room.event ? {
+      event: ('event' in room && room.event) ? {
         ...room.event,
         maxParticipants: room.event.maxParticipants ?? 0
       } : undefined,
