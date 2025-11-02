@@ -286,7 +286,36 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
   };
 
   // KORRIGIERT: Sichere Type Conversion ohne "as ChatRoom"
-  const convertedRooms = displayRooms?.map((room, index) => {
+  // Kombiniere displayRooms mit nearbySchools
+  console.log('🏫 DEBUG: nearbySchools from context:', nearbySchools);
+  console.log('🏘️ DEBUG: displayRooms from context:', displayRooms);
+  
+  const allDisplayRooms = [
+    ...(displayRooms || []),
+    // Konvertiere nearbySchools zu ChatRoom Format
+    ...(nearbySchools?.map((school, index) => ({
+      _id: school.id,
+      id: school.id,
+      name: school.name,
+      type: 'school',
+      subType: school.subType || 'university',
+      participants: school.participants || 0,
+      distance: school.distance || 0,
+      location: {
+        type: 'Point',
+        coordinates: [school.longitude, school.latitude],
+        latitude: school.latitude,
+        longitude: school.longitude,
+        address: school.address,
+        city: school.city
+      },
+      description: school.description
+    })) || [])
+  ];
+  
+  console.log('🔄 DEBUG: allDisplayRooms combined:', allDisplayRooms.length, 'items');
+
+  const convertedRooms = allDisplayRooms?.map((room, index) => {
     console.log('🔍 Processing room:', room.name, 'participants:', room.participants, 'distance:', room.distance, 'type:', room.type, 'subType:', room.subType);
     
     // SICHERE Type Conversion ohne Type Assertions
