@@ -18,7 +18,7 @@ import RegisterScreen from './components/Auth/RegisterScreen';
 import HomeScreen from './components/Home/HomeScreenOriginal';
 import ChatScreen from './components/Chat/ChatScreen';
 import ScreenshotSwitch from './components/Chat/ScreenshotSwitch';
-import ChatRoomList from './components/ChatRoomList';
+import ChatRoomList from './components/ChatRoomList/ChatRoomList';
 import ProfilePage from './pages/ProfilePage';
 import CreateEventPage from './pages/CreateEventPage';
 import CreateEventScreen from './components/Events/CreateEventScreen';
