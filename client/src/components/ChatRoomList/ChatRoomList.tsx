@@ -342,7 +342,7 @@ const ChatRoomList = ({ onRoomSelect }: ChatRoomListProps) => {
       {/* Header */}
       <Box sx={{ p: 2, borderBottom: '1px solid #e5e7eb' }}>
         <Typography variant="h6" sx={{ fontWeight: 600, color: '#1f2937', mb: 2 }}>
-          Chaträume
+          Villages & Schools
         </Typography>
         
         {/* Suchfeld */}
