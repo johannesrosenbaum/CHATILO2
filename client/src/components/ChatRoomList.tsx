@@ -340,7 +340,7 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
         ]) as [number, number],
         address: room.location.address,
         city: room.location.city,
-        radius: room.location.radius,
+        radius: ('radius' in room.location) ? room.location.radius : undefined,
         latitude: room.location.latitude,
         longitude: room.location.longitude
       } : undefined
