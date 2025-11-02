@@ -100,7 +100,7 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
     isRoomsLoading
   } = useSocket();
   const { getFavoriteRoomsData } = useChat();
-  const { loadNearbySchools, nearbySchools } = useLocationContext();
+  const { loadNearbySchools, nearbySchools, currentLocation } = useLocationContext();
   const [createEventOpen, setCreateEventOpen] = useState(false);
   const [eventName, setEventName] = useState('');
   const [eventDescription, setEventDescription] = useState('');
@@ -122,11 +122,11 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
 
   // Load schools when user location is available
   useEffect(() => {
-    if (userLocation && user) {
-      console.log('🏫 Triggering school load for location:', userLocation);
+    if (currentLocation && user) {
+      console.log('🏫 Triggering school load for location:', currentLocation);
       loadNearbySchools();
     }
-  }, [userLocation, user, loadNearbySchools]);
+  }, [currentLocation, user, loadNearbySchools]);
 
   // --- NEW: Robust loading and error guard for user context ---
   // Always render the sidebar UI. Show loading or error state inside the sidebar if needed.
