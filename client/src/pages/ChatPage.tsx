@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Drawer, AppBar, Toolbar, IconButton, Typography, useMediaQuery, useTheme } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import ChatRoomList from '../components/ChatRoomList';
+import ChatRoomList from '../components/ChatRoomList/ChatRoomList';
 import ChatInterface from '../components/ChatInterface';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSocket } from '../contexts/SocketContext';

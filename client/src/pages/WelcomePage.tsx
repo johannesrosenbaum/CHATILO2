@@ -2,7 +2,7 @@
 import React from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import AIWelcome from '../components/AIWelcome';
-import ChatRoomList from '../components/ChatRoomList';
+import ChatRoomList from '../components/ChatRoomList/ChatRoomList';
 import { SocketProvider } from '../contexts/SocketContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
