@@ -106,6 +106,13 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
   const [eventDescription, setEventDescription] = useState('');
   const [eventStartDate, setEventStartDate] = useState('');
   const [eventEndDate, setEventEndDate] = useState('');
+  
+  // Expanded state für Sektionen
+  const [villagesExpanded, setVillagesExpanded] = useState(true);
+  const [schoolsExpanded, setSchoolsExpanded] = useState(true);
+  const [eventsExpanded, setEventsExpanded] = useState(false);
+  const [globalExpanded, setGlobalExpanded] = useState(false);
+  
   const navigate = useNavigate();
   const location = useLocation();
   const { roomId } = useParams<{ roomId: string }>();
@@ -364,8 +371,13 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
   );
 
   // Hilfsfunktion für Sektion-Rendering
-  const renderRoomSection = (title: string, rooms: ChatRoom[], icon: React.ReactNode, defaultExpanded = true) => {
-    const [expanded, setExpanded] = useState(defaultExpanded);
+  const renderRoomSection = (
+    title: string, 
+    rooms: ChatRoom[], 
+    icon: React.ReactNode, 
+    expanded: boolean,
+    setExpanded: (expanded: boolean) => void
+  ) => {
     
     if (rooms.length === 0) return null;
     
@@ -593,7 +605,8 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
               'Villages', 
               villageRooms, 
               <LocationOn />, 
-              true
+              villagesExpanded,
+              setVillagesExpanded
             )}
             
             {/* Schools Sektion */}
@@ -601,7 +614,8 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
               'Schools & Universities', 
               allSchoolRooms, 
               <School />, 
-              true
+              schoolsExpanded,
+              setSchoolsExpanded
             )}
             
             {/* Events Sektion */}
@@ -609,7 +623,8 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
               'Events', 
               eventRooms, 
               <Event />, 
-              false
+              eventsExpanded,
+              setEventsExpanded
             )}
             
             {/* Global Sektion */}
@@ -617,7 +632,8 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
               'Global Chats', 
               globalRooms, 
               <Public />, 
-              false
+              globalExpanded,
+              setGlobalExpanded
             )}
           </List>
         )}
