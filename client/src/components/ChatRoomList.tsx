@@ -113,6 +113,9 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
   const [eventsExpanded, setEventsExpanded] = useState(false);
   const [globalExpanded, setGlobalExpanded] = useState(false);
   
+  // Debug-Panel Sichtbarkeit steuern
+  const [showDebug, setShowDebug] = useState(false);
+  
   const navigate = useNavigate();
   const location = useLocation();
   const { roomId } = useParams<{ roomId: string }>();
@@ -357,9 +360,6 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
 
   // DEBUG: Zeige alle Räume ungefiltert an
   console.log('🏗️ DEBUG: Zeige alle convertedRooms:', convertedRooms);
-
-  // Debug-Panel Sichtbarkeit steuern
-  const [showDebug, setShowDebug] = useState(false);
 
   // Debug-Button (nur für Entwickler sichtbar)
   const DebugToggleButton = () => (
