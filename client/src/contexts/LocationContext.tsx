@@ -11,6 +11,8 @@ interface LocationContextType extends LocationState {
   createLocalChatRooms: (location: Location) => Promise<void>;
   setChatRoomsCallback: (callback: (rooms: ChatRoom[]) => void) => void;
   initializeUserLocations: () => Promise<void>;
+  loadNearbySchools: () => Promise<void>;
+  nearbySchools: any[];
 }
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
@@ -19,11 +21,13 @@ type LocationAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_CURRENT_LOCATION'; payload: Location | null }
-  | { type: 'SET_NEARBY_CHAT_ROOMS'; payload: ChatRoom[] };
+  | { type: 'SET_NEARBY_CHAT_ROOMS'; payload: ChatRoom[] }
+  | { type: 'SET_NEARBY_SCHOOLS'; payload: any[] };
 
 const initialState: LocationState = {
   currentLocation: null,
   nearbyChatRooms: [],
+  nearbySchools: [],
   isLoading: false,
   error: null,
 };
@@ -38,6 +42,8 @@ const locationReducer = (state: LocationState, action: LocationAction): Location
       return { ...state, currentLocation: action.payload };
     case 'SET_NEARBY_CHAT_ROOMS':
       return { ...state, nearbyChatRooms: action.payload };
+    case 'SET_NEARBY_SCHOOLS':
+      return { ...state, nearbySchools: action.payload };
     default:
       return state;
   }
@@ -247,14 +253,65 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
     chatRoomsCallbackRef.current = callback;
   };
 
+  const loadNearbySchools = async () => {
+    try {
+      if (!state.currentLocation) {
+        console.log('❌ No current location available for school search');
+        return;
+      }
+
+      console.log('🏫 Loading nearby schools...');
+      dispatch({ type: 'SET_LOADING', payload: true });
+
+      const response = await api.get('/chat/schools/nearby', {
+        params: {
+          latitude: state.currentLocation.latitude,
+          longitude: state.currentLocation.longitude,
+          radius: 20 // 20km radius for schools
+        }
+      });
+
+      if (response.data.success) {
+        const schools = response.data.schools || [];
+        console.log('✅ Schools loaded:', schools.length, 'schools found');
+        dispatch({ type: 'SET_NEARBY_SCHOOLS', payload: schools });
+        
+        // Merge schools into chat rooms for display
+        const schoolChatRooms = schools.map((school: any) => ({
+          ...school,
+          type: 'school',
+          participants: school.participants || 0
+        }));
+        
+        // Combine with existing chat rooms but prioritize schools
+        const existingRooms = state.nearbyChatRooms.filter(room => room.type !== 'school');
+        const combinedRooms = [...existingRooms, ...schoolChatRooms];
+        
+        dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: combinedRooms });
+        
+        if (chatRoomsCallbackRef.current) {
+          chatRoomsCallbackRef.current(combinedRooms);
+        }
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Fehler beim Laden der Schulen';
+      dispatch({ type: 'SET_ERROR', payload: message });
+      console.error('❌ Error loading nearby schools:', error);
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
   const value: LocationContextType = {
     ...state,
+    nearbySchools: state.nearbySchools || [],
     getCurrentLocation,
     updateLocation,
     loadUserChatRooms,
     createLocalChatRooms,
     setChatRoomsCallback,
     initializeUserLocations,
+    loadNearbySchools,
   };
 
   return <LocationContext.Provider value={value}>{children}</LocationContext.Provider>;

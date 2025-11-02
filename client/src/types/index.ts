@@ -262,6 +262,7 @@ export interface ChatState {
 export interface LocationState {
   currentLocation: Location | null;
   nearbyChatRooms: ChatRoom[];
+  nearbySchools?: any[]; // Schools from OpenStreetMap
   userLocations?: Location[]; // Gespeicherte Benutzer-Standorte
   isLoading: boolean;
   error: string | null;

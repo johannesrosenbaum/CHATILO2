@@ -1490,6 +1490,162 @@ router.post('/messages/:messageId/reply', auth, async (req, res) => {
   }
 });
 
+// ===== SCHOOLS & UNIVERSITIES API =====
+
+// Get nearby schools and universities from OpenStreetMap
+router.get('/schools/nearby', auth, async (req, res) => {
+  try {
+    const { latitude, longitude, radius = 20 } = req.query;
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({ error: 'Latitude and longitude are required' });
+    }
+
+    console.log(`🏫 Searching for schools near: ${latitude}, ${longitude} within ${radius}km`);
+
+    // OpenStreetMap Overpass API query for schools, universities, and colleges
+    const overpassQuery = `
+      [out:json][timeout:25];
+      (
+        node["amenity"="school"](around:${radius * 1000},${latitude},${longitude});
+        way["amenity"="school"](around:${radius * 1000},${latitude},${longitude});
+        relation["amenity"="school"](around:${radius * 1000},${latitude},${longitude});
+        node["amenity"="university"](around:${radius * 1000},${latitude},${longitude});
+        way["amenity"="university"](around:${radius * 1000},${latitude},${longitude});
+        relation["amenity"="university"](around:${radius * 1000},${latitude},${longitude});
+        node["amenity"="college"](around:${radius * 1000},${latitude},${longitude});
+        way["amenity"="college"](around:${radius * 1000},${latitude},${longitude});
+        relation["amenity"="college"](around:${radius * 1000},${latitude},${longitude});
+      );
+      out center meta;
+    `;
+
+    // Make request to Overpass API
+    const axios = require('axios');
+    const overpassUrl = 'https://overpass-api.de/api/interpreter';
+    
+    const response = await axios.post(overpassUrl, overpassQuery, {
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+      timeout: 30000 // 30 second timeout
+    });
+
+    const data = response.data;
+    console.log(`📊 Found ${data.elements?.length || 0} educational institutions from OpenStreetMap`);
+
+    // Process and normalize the data
+    const schools = data.elements
+      .filter(element => element.tags && element.tags.name) // Only items with names
+      .map(element => {
+        const { tags } = element;
+        
+        // Get coordinates
+        let lat = element.lat;
+        let lon = element.lon;
+        
+        // For ways and relations, use center coordinates
+        if (element.center) {
+          lat = element.center.lat;
+          lon = element.center.lon;
+        }
+
+        // Determine institution type and subtype
+        let type = 'school';
+        let subType = 'general';
+        
+        if (tags.amenity === 'university') {
+          subType = 'university';
+        } else if (tags.amenity === 'college') {
+          subType = 'university';
+        } else if (tags.amenity === 'school') {
+          // Try to determine school level from tags
+          if (tags['school:level'] && tags['school:level'].includes('primary')) {
+            subType = 'primary';
+          } else if (tags['school:level'] && tags['school:level'].includes('secondary')) {
+            subType = 'secondary';
+          } else if (tags['school:for'] && tags['school:for'].includes('university')) {
+            subType = 'university';
+          } else {
+            // Default based on common patterns
+            subType = 'secondary';
+          }
+        }
+
+        // Calculate distance
+        const distance = calculateDistance(
+          parseFloat(latitude),
+          parseFloat(longitude),
+          lat,
+          lon
+        );
+
+        return {
+          id: `school_${element.id}`,
+          _id: `school_${element.id}`,
+          name: tags.name,
+          type: type,
+          subType: subType,
+          participants: Math.floor(Math.random() * 50) + 10, // Simulated participant count
+          distance: distance,
+          location: {
+            type: 'Point',
+            coordinates: [lon, lat],
+            latitude: lat,
+            longitude: lon,
+            address: tags['addr:full'] || tags['addr:street'] || '',
+            city: tags['addr:city'] || '',
+          },
+          description: tags.description || `${subType === 'university' ? 'Universität' : 'Schule'} in der Nähe`,
+          tags: {
+            amenity: tags.amenity,
+            website: tags.website,
+            phone: tags.phone,
+            email: tags.email,
+            'school:level': tags['school:level'],
+            'school:for': tags['school:for']
+          }
+        };
+      })
+      .filter(school => school.distance <= radius) // Filter by radius
+      .sort((a, b) => a.distance - b.distance); // Sort by distance
+
+    console.log(`✅ Processed ${schools.length} schools within ${radius}km:`);
+    schools.slice(0, 5).forEach(school => {
+      console.log(`   📍 ${school.name} (${school.subType}) - ${school.distance.toFixed(2)}km`);
+    });
+
+    res.json({
+      success: true,
+      schools: schools,
+      total: schools.length,
+      searchRadius: radius,
+      userLocation: { latitude: parseFloat(latitude), longitude: parseFloat(longitude) }
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching nearby schools:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch nearby schools', 
+      details: error.message 
+    });
+  }
+});
+
+// Helper function to calculate distance between two points
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// ===== END SCHOOLS & UNIVERSITIES API =====
+
 // ===== END REDDIT-STYLE FEATURES =====
 
 module.exports = router;

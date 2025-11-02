@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import {
   Box,
@@ -32,19 +32,23 @@ import {
   Add,
   Schedule,
   EventAvailable,
-  Star as StarIcon
+  Star as StarIcon,
+  School,
+  ExpandLess,
+  ExpandMore
 } from '@mui/icons-material';
 import { useSocket } from '../contexts/SocketContext';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useChat } from '../contexts/ChatContext';
+import { useLocation as useLocationContext } from '../contexts/LocationContext';
 import FavoriteButton from './FavoriteButton';
 
 interface ChatRoom {
   id: string;
   _id?: string;
   name: string;
-  type: 'location' | 'event' | 'global';
-  subType?: 'regional' | 'city' | 'neighborhood' | 'general';
+  type: 'location' | 'event' | 'global' | 'school';
+  subType?: 'regional' | 'city' | 'neighborhood' | 'general' | 'university' | 'primary' | 'secondary';
   participants: number;
   lastMessage?: any;
   // KORRIGIERT: Flexible location property
@@ -96,6 +100,7 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
     isRoomsLoading
   } = useSocket();
   const { getFavoriteRoomsData } = useChat();
+  const { loadNearbySchools, nearbySchools } = useLocationContext();
   const [createEventOpen, setCreateEventOpen] = useState(false);
   const [eventName, setEventName] = useState('');
   const [eventDescription, setEventDescription] = useState('');
@@ -104,6 +109,14 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { roomId } = useParams<{ roomId: string }>();
+
+  // Load schools when user location is available
+  useEffect(() => {
+    if (userLocation && user) {
+      console.log('🏫 Triggering school load for location:', userLocation);
+      loadNearbySchools();
+    }
+  }, [userLocation, user, loadNearbySchools]);
 
   // --- NEW: Robust loading and error guard for user context ---
   // Always render the sidebar UI. Show loading or error state inside the sidebar if needed.
@@ -221,6 +234,11 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
         return <LocationOn color="primary" />;
       case 'event':
         return <Event color="secondary" />;
+      case 'school':
+        if (roomSubType === 'university') return <School color="info" />;
+        if (roomSubType === 'secondary') return <School color="warning" />;
+        if (roomSubType === 'primary') return <School color="success" />;
+        return <School color="info" />;
       case 'global':
         return <Public color="action" />;
       default:
@@ -265,8 +283,8 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
     const convertedRoom: ChatRoom = {
       ...room,
       id: getRoomId(room),
-      type: (room.type || 'location') as 'location' | 'event' | 'global',
-      subType: (room.subType || 'neighborhood') as 'regional' | 'city' | 'neighborhood' | 'general' | undefined,
+      type: (room.type || 'location') as 'location' | 'event' | 'global' | 'school',
+      subType: (room.subType || 'neighborhood') as 'regional' | 'city' | 'neighborhood' | 'general' | 'university' | 'primary' | 'secondary' | undefined,
       participants: room.participants || 0,
       distance: room.distance || 0,
       event: room.event ? {
@@ -311,6 +329,24 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
   const globalRooms = convertedRooms.filter(
     (room) => room.type === 'global'
   );
+  
+  // School category arrays
+  const schoolRooms = convertedRooms.filter(
+    (room) => room.type === 'school'
+  );
+  const universityRooms = schoolRooms.filter(
+    (room) => room.subType === 'university'
+  );
+  const secondarySchoolRooms = schoolRooms.filter(
+    (room) => room.subType === 'secondary'
+  );
+  const primarySchoolRooms = schoolRooms.filter(
+    (room) => room.subType === 'primary'
+  );
+
+  // Combined arrays for sections
+  const villageRooms = [...regionalRooms, ...cityRooms, ...allNeighborhoodRooms];
+  const allSchoolRooms = [...universityRooms, ...secondarySchoolRooms, ...primarySchoolRooms];
 
   // DEBUG: Zeige alle Räume ungefiltert an
   console.log('🏗️ DEBUG: Zeige alle convertedRooms:', convertedRooms);
@@ -326,6 +362,100 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
       </Button>
     </Box>
   );
+
+  // Hilfsfunktion für Sektion-Rendering
+  const renderRoomSection = (title: string, rooms: ChatRoom[], icon: React.ReactNode, defaultExpanded = true) => {
+    const [expanded, setExpanded] = useState(defaultExpanded);
+    
+    if (rooms.length === 0) return null;
+    
+    return (
+      <Box sx={{ mb: 2 }}>
+        <ListItemButton
+          onClick={() => setExpanded(!expanded)}
+          sx={{
+            borderBottom: '1px solid rgba(255,255,255,0.1)',
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            '&:hover': {
+              backgroundColor: 'rgba(255,255,255,0.1)',
+            }
+          }}
+        >
+          <ListItemIcon sx={{ color: 'white' }}>
+            {icon}
+          </ListItemIcon>
+          <ListItemText
+            primary={
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'white' }}>
+                {title} ({rooms.length})
+              </Typography>
+            }
+          />
+          <IconButton size="small" sx={{ color: 'white' }}>
+            {expanded ? <ExpandLess /> : <ExpandMore />}
+          </IconButton>
+        </ListItemButton>
+        
+        {expanded && (
+          <List sx={{ pl: 2 }}>
+            {rooms.map((room) => (
+              <ListItem key={room.id} disablePadding>
+                <ListItemButton
+                  onClick={() => handleRoomClick(room.id)}
+                  sx={{
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    '&:hover': {
+                      background: 'rgba(255,255,255,0.1)',
+                    },
+                    '&.Mui-selected': {
+                      background: 'rgba(255,255,255,0.2)',
+                    }
+                  }}
+                  selected={roomId === room.id}
+                >
+                  <ListItemIcon>
+                    {getRoomIcon(room.type, room.subType)}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {room.name}
+                        </Typography>
+                        {room.distance && (
+                          <Chip
+                            label={`${room.distance.toFixed(1)}km`}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        )}
+                      </Box>
+                    }
+                    secondary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                        <People fontSize="small" sx={{ color: 'rgba(255,255,255,0.5)' }} />
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                          {room.participants} Teilnehmer
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <FavoriteButton 
+                      roomId={room.id} 
+                      roomName={room.name}
+                      size="small"
+                    />
+                  </Box>
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        )}
+      </Box>
+    );
+  };
 
 
   return (
@@ -458,67 +588,37 @@ const ChatRoomList: React.FC<ChatRoomListProps> = ({ onRoomSelect }) => {
           </Box>
         ) : (
           <List sx={{ p: 0 }}>
-            {/* Alle Chatrooms anzeigen */}
-            {convertedRooms.map((room) => (
-              <ListItem key={room.id} disablePadding>
-                <ListItemButton
-                  onClick={() => handleRoomClick(room.id)}
-                  sx={{
-                    borderBottom: '1px solid rgba(255,255,255,0.1)',
-                    '&:hover': {
-                      background: 'rgba(255,255,255,0.1)',
-                    },
-                    '&.Mui-selected': {
-                      background: 'rgba(255,255,255,0.2)',
-                    }
-                  }}
-                  selected={roomId === room.id}
-                >
-                  <ListItemIcon>
-                    {getRoomIcon(room.type, room.subType)}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                          {room.name}
-                        </Typography>
-                        {room.distance && (
-                          <Chip
-                            label={`${room.distance.toFixed(1)}km`}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                          />
-                        )}
-                      </Box>
-                    }
-                    secondary={
-                      <Box>
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                          {room.type === 'location' ? 'Lokaler Chat' : 
-                           room.type === 'event' ? 'Event Chat' : 'Globaler Chat'}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                          <People fontSize="small" sx={{ color: 'rgba(255,255,255,0.5)' }} />
-                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                            {room.participants} Teilnehmer
-                          </Typography>
-                        </Box>
-                      </Box>
-                    }
-                  />
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Badge badgeContent={room.participants} color="primary" />
-                    <FavoriteButton 
-                      roomId={room.id} 
-                      roomName={room.name}
-                      size="small"
-                    />
-                  </Box>
-                </ListItemButton>
-              </ListItem>
-            ))}
+            {/* Villages Sektion */}
+            {renderRoomSection(
+              'Villages', 
+              villageRooms, 
+              <LocationOn />, 
+              true
+            )}
+            
+            {/* Schools Sektion */}
+            {renderRoomSection(
+              'Schools & Universities', 
+              allSchoolRooms, 
+              <School />, 
+              true
+            )}
+            
+            {/* Events Sektion */}
+            {renderRoomSection(
+              'Events', 
+              eventRooms, 
+              <Event />, 
+              false
+            )}
+            
+            {/* Global Sektion */}
+            {renderRoomSection(
+              'Global Chats', 
+              globalRooms, 
+              <Public />, 
+              false
+            )}
           </List>
         )}
       </Box>
