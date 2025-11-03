@@ -32,6 +32,7 @@ import {
   ExpandLess,
   ExpandMore,
   Logout as LogoutIcon,
+  School as SchoolIcon,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -53,11 +54,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
-  const [chatRoomsOpen, setChatRoomsOpen] = useState(false);
+  const [villagesOpen, setVillagesOpen] = useState(false);
+  const [schoolsOpen, setSchoolsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const { currentLocation } = useLocationContext();
+  const { currentLocation, nearbySchools } = useLocationContext();
   const { chatRooms, getFavoriteRoomsData } = useChat();
 
   const menuItems = [
@@ -279,10 +281,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <Divider sx={{ borderColor: 'rgba(99, 102, 241, 0.1)', mx: 2 }} />
 
-      {/* Chat Rooms Section */}
+      {/* Villages & Schools Sections */}
       <List sx={{ flex: 1, py: 2 }}>
+        {/* Villages Dropdown */}
         <ListItemButton
-          onClick={() => setChatRoomsOpen(!chatRoomsOpen)}
+          onClick={() => setVillagesOpen(!villagesOpen)}
           sx={{
             mx: 2,
             borderRadius: 2,
@@ -295,7 +298,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <ChatIcon />
           </ListItemIcon>
           <ListItemText
-            primary="Chat-Räume"
+            primary="Villages"
             sx={{
               '& .MuiTypography-root': {
                 fontWeight: 600,
@@ -303,11 +306,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               },
             }}
           />
-          {chatRoomsOpen ? <ExpandLess /> : <ExpandMore />}
+          {villagesOpen ? <ExpandLess /> : <ExpandMore />}
         </ListItemButton>
 
-        <Collapse in={chatRoomsOpen} timeout="auto" unmountOnExit>
-          <Box sx={{ px: 2, py: 1, maxHeight: 400, overflowY: 'auto' }}>
+        <Collapse in={villagesOpen} timeout="auto" unmountOnExit>
+          <Box sx={{ px: 2, py: 1, maxHeight: 300, overflowY: 'auto' }}>
             {chatRooms && chatRooms.length > 0 ? (
               chatRooms.slice(0, 10).map((room) => (
                 <motion.div
@@ -346,7 +349,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         >
                           {room.name}
                         </Typography>
-                        {/* ⭐ FAVORITEN-STERN HINZUGEFÜGT */}
                         <FavoriteButton 
                           roomId={room._id} 
                           roomName={room.name}
@@ -361,7 +363,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                           mb: 1,
                         }}
                       >
-                        {room.description || `${room.type} Raum`}
+                        {room.description || `${room.type} in der Nähe`}
                       </Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Chip
@@ -388,7 +390,107 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   py: 2,
                 }}
               >
-                Keine Chat-Räume verfügbar
+                Keine Villages verfügbar
+              </Typography>
+            )}
+          </Box>
+        </Collapse>
+
+        {/* Schools/Universities Dropdown */}
+        <ListItemButton
+          onClick={() => setSchoolsOpen(!schoolsOpen)}
+          sx={{
+            mx: 2,
+            mt: 1,
+            borderRadius: 2,
+            '&:hover': {
+              background: 'rgba(34, 197, 94, 0.05)',
+            },
+          }}
+        >
+          <ListItemIcon sx={{ color: '#22c55e', minWidth: 40 }}>
+            <SchoolIcon />
+          </ListItemIcon>
+          <ListItemText
+            primary="Schools & Universities"
+            sx={{
+              '& .MuiTypography-root': {
+                fontWeight: 600,
+                color: 'text.primary',
+              },
+            }}
+          />
+          {schoolsOpen ? <ExpandLess /> : <ExpandMore />}
+        </ListItemButton>
+
+        <Collapse in={schoolsOpen} timeout="auto" unmountOnExit>
+          <Box sx={{ px: 2, py: 1, maxHeight: 300, overflowY: 'auto' }}>
+            {nearbySchools && nearbySchools.length > 0 ? (
+              nearbySchools.slice(0, 10).map((school, index) => (
+                <motion.div
+                  key={`school-${index}`}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Card
+                    sx={{
+                      mb: 1,
+                      cursor: 'pointer',
+                      border: '1px solid rgba(34, 197, 94, 0.1)',
+                      '&:hover': {
+                        border: '1px solid rgba(34, 197, 94, 0.3)',
+                        transform: 'translateX(4px)',
+                        boxShadow: '0 2px 8px rgba(34, 197, 94, 0.1)',
+                      },
+                      transition: 'all 0.2s ease',
+                    }}
+                    onClick={() => {
+                      // TODO: Navigate to school chat room
+                      console.log('School clicked:', school);
+                    }}
+                  >
+                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <SchoolIcon sx={{ color: '#22c55e', fontSize: 20 }} />
+                        <Typography
+                          variant="subtitle2"
+                          sx={{
+                            fontWeight: 600,
+                            color: 'text.primary',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            flex: 1,
+                          }}
+                        >
+                          {school.name}
+                        </Typography>
+                      </Box>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                          display: 'block',
+                          mb: 1,
+                        }}
+                      >
+                        {school.type || 'school'} • {(school.distance / 1000).toFixed(1)} km
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))
+            ) : (
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                  textAlign: 'center',
+                  py: 2,
+                }}
+              >
+                Keine Schools verfügbar
               </Typography>
             )}
           </Box>
