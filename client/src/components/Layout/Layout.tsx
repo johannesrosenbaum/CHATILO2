@@ -62,13 +62,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { currentLocation, nearbySchools, loadNearbySchools } = useLocationContext();
   const { chatRooms, getFavoriteRoomsData } = useChat();
 
-  // Load schools when location is available
+  // Load schools when location is available (once)
   useEffect(() => {
-    if (currentLocation && user && loadNearbySchools) {
+    if (currentLocation && user && nearbySchools.length === 0) {
       console.log('🏫 Layout: Loading schools for location:', currentLocation);
       loadNearbySchools();
     }
-  }, [currentLocation, user, loadNearbySchools]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLocation?.latitude, currentLocation?.longitude, user?.id]);
 
   const menuItems = [
     { text: 'Startseite', icon: <HomeIcon />, path: '/' },
