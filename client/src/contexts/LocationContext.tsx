@@ -114,7 +114,8 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
       if (currentLocation) {
         await updateLocation(currentLocation);
         await createLocalChatRooms(currentLocation);
-        await loadUserChatRooms();
+        // Pass location directly instead of relying on state
+        await loadUserChatRooms(currentLocation);
       }
     } catch (error) {
       console.error('❌ Fehler bei Standort-Initialisierung:', error);
@@ -206,19 +207,22 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
     }
   };
 
-  const loadUserChatRooms = async () => {
+  const loadUserChatRooms = async (location?: Location) => {
+    const loc = location || state.currentLocation;
+    
+    if (!loc) {
+      console.log('❌ Kein Standort verfügbar für Raumsuche');
+      return;
+    }
+
     console.log('🔍 Lade Chaträume im Umkreis des aktuellen Standorts...');
+    console.log(`   Standort: ${loc.latitude}, ${loc.longitude}`);
     
     try {
-      if (!state.currentLocation) {
-        console.log('❌ Kein Standort verfügbar für Raumsuche');
-        return;
-      }
-
       const response = await api.get('/api/chat/rooms/nearby', {
         params: {
-          lat: state.currentLocation.latitude,
-          lng: state.currentLocation.longitude,
+          lat: loc.latitude,
+          lng: loc.longitude,
           radius: 20000 // 20km Radius
         }
       });
@@ -226,7 +230,7 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
       if (response.data.success && response.data.rooms) {
         const chatRooms = response.data.rooms;
         console.log('✅ Chaträume im Umkreis geladen:', chatRooms.length, 'Räume');
-        console.log('   Standort:', state.currentLocation.address?.city || 'Unbekannt');
+        console.log('   Standort:', loc.address?.city || 'Unbekannt');
         
         dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: chatRooms });
         
@@ -289,7 +293,7 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
       console.log(`   Location: ${state.currentLocation.latitude}, ${state.currentLocation.longitude}`);
       dispatch({ type: 'SET_LOADING', payload: true });
 
-      const response = await api.get('/schools/nearby', {
+      const response = await api.get('/api/schools/nearby', {
         params: {
           lat: state.currentLocation.latitude,
           lng: state.currentLocation.longitude,
