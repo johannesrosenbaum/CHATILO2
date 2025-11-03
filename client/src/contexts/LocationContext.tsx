@@ -297,7 +297,7 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
         params: {
           lat: state.currentLocation.latitude,
           lng: state.currentLocation.longitude,
-          radius: 20000 // 20km radius for schools
+          radius: 25000 // 25km radius to include universities (schools filtered at 15km on backend)
         }
       });
 
