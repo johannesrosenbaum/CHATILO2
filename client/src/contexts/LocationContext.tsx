@@ -207,14 +207,26 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
   };
 
   const loadUserChatRooms = async () => {
-    console.log('🔍 Lade alle Benutzer-Chaträume...');
+    console.log('🔍 Lade Chaträume im Umkreis des aktuellen Standorts...');
     
     try {
-      const response = await api.get('/api/chat/rooms/user');
+      if (!state.currentLocation) {
+        console.log('❌ Kein Standort verfügbar für Raumsuche');
+        return;
+      }
+
+      const response = await api.get('/api/chat/rooms/nearby', {
+        params: {
+          lat: state.currentLocation.latitude,
+          lng: state.currentLocation.longitude,
+          radius: 20000 // 20km Radius
+        }
+      });
       
       if (response.data.success && response.data.rooms) {
         const chatRooms = response.data.rooms;
-        console.log('✅ Benutzer-Chaträume geladen:', chatRooms.length, 'Räume');
+        console.log('✅ Chaträume im Umkreis geladen:', chatRooms.length, 'Räume');
+        console.log('   Standort:', state.currentLocation.address?.city || 'Unbekannt');
         
         dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: chatRooms });
         
@@ -224,8 +236,21 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
         }
       }
     } catch (error) {
-      console.error('❌ Fehler beim Laden der Benutzer-Chaträume:', error);
-      dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: [] });
+      console.error('❌ Fehler beim Laden der Chaträume im Umkreis:', error);
+      // Fallback: Versuche alle User-Räume zu laden
+      console.log('🔄 Fallback: Lade alle Benutzer-Räume...');
+      try {
+        const fallbackResponse = await api.get('/api/chat/rooms/user');
+        if (fallbackResponse.data.success && fallbackResponse.data.rooms) {
+          dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: fallbackResponse.data.rooms });
+          if (chatRoomsCallbackRef.current) {
+            chatRoomsCallbackRef.current(fallbackResponse.data.rooms);
+          }
+        }
+      } catch (fallbackError) {
+        console.error('❌ Auch Fallback fehlgeschlagen:', fallbackError);
+        dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: [] });
+      }
     }
   };
 

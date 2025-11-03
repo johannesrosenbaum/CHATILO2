@@ -470,6 +470,105 @@ router.get('/rooms/user', auth, async (req, res) => {
   }
 });
 
+// Get nearby rooms based on user location
+router.get('/rooms/nearby', auth, async (req, res) => {
+  try {
+    const { lat, lng, radius = 20000 } = req.query;
+    
+    console.log(`📍 [GET] /api/chat/rooms/nearby - User: ${req.user.id}`);
+    console.log(`   Location: ${lat}, ${lng}, Radius: ${radius}m`);
+
+    if (!lat || !lng) {
+      return res.status(400).json({
+        success: false,
+        error: 'Latitude and longitude required'
+      });
+    }
+
+    const latitude = parseFloat(lat);
+    const longitude = parseFloat(lng);
+    const radiusMeters = parseInt(radius);
+
+    // Get all rooms the user is a participant of
+    const userRooms = await ChatRoom.find({
+      $or: [
+        { createdBy: req.user.id },
+        { participants: req.user.id }
+      ]
+    })
+    .populate('createdBy', 'username')
+    .populate('participants', 'username')
+    .lean();
+
+    console.log(`   Found ${userRooms.length} user rooms total`);
+
+    // Filter rooms by distance
+    const nearbyRooms = userRooms.filter(room => {
+      if (!room.location || !room.location.latitude || !room.location.longitude) {
+        return false;
+      }
+
+      const distance = calculateDistance(
+        latitude,
+        longitude,
+        room.location.latitude,
+        room.location.longitude
+      );
+
+      return distance <= radiusMeters;
+    });
+
+    console.log(`   ${nearbyRooms.length} rooms within ${radiusMeters}m radius`);
+
+    // Add additional info
+    const roomsWithInfo = nearbyRooms.map(room => ({
+      ...room,
+      memberCount: room.participants ? room.participants.length : 0,
+      isOwner: room.createdBy && room.createdBy._id.toString() === req.user.id,
+      distance: calculateDistance(
+        latitude,
+        longitude,
+        room.location.latitude,
+        room.location.longitude
+      )
+    }))
+    .sort((a, b) => a.distance - b.distance); // Sort by distance
+
+    console.log(`✅ [GET] /api/chat/rooms/nearby - Returning ${roomsWithInfo.length} nearby rooms`);
+
+    res.json({
+      success: true,
+      rooms: roomsWithInfo,
+      count: roomsWithInfo.length,
+      query: { latitude, longitude, radius: radiusMeters }
+    });
+
+  } catch (error) {
+    console.error('❌ [GET] /api/chat/rooms/nearby - Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch nearby rooms',
+      details: error.message
+    });
+  }
+});
+
+// Helper function to calculate distance
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Earth's radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // Distance in meters
+}
+
 // NEUE ROUTE: Room-Details abrufen (MOVED AFTER /rooms/user)
 router.get('/rooms/:roomId', async (req, res) => {
   try {
