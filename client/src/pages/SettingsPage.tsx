@@ -122,7 +122,7 @@ const SettingsPage: React.FC = () => {
                 </ListItemIcon>
                 <ListItemText
                   primary="Standort-Dienste"
-                  secondary="Ermöglicht lokale Chat-Räume"
+                  secondary="Ermöglicht lokale Villages & Schools"
                 />
                 <ListItemSecondaryAction>
                   <Switch

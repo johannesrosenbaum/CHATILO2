@@ -319,7 +319,7 @@ const HomeScreen = () => {
             <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
               <ChatIcon sx={{ color: '#667eea', fontSize: 28 }} />
               <Typography variant="h6" fontWeight={600} color="text.primary">
-                Aktive Chat-Räume
+                Aktive Villages & Schools
               </Typography>
             </Box>
 
@@ -411,14 +411,14 @@ const HomeScreen = () => {
                     },
                   }}
                 >
-                  Alle Chat-Räume anzeigen
+                  Alle Villages & Schools anzeigen
                 </Button>
               </Box>
             ) : (
               <Card sx={{ p: 3, textAlign: 'center', border: '1px solid rgba(102, 126, 234, 0.1)' }}>
                 <ChatIcon sx={{ fontSize: 36, color: '#667eea', mb: 1 }} />
                 <Typography variant="body2" color="text.secondary">
-                  Keine Chat-Räume verfügbar
+                  Keine Villages & Schools verfügbar
                 </Typography>
               </Card>
             )}

@@ -147,7 +147,7 @@ const WelcomeScreen: React.FC = () => {
                 color="text.secondary"
                 sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' } }}
               >
-                Finde automatisch Chat-Räume in deiner unmittelbaren Umgebung
+                Finde automatisch Villages & Schools in deiner unmittelbaren Umgebung
               </Typography>
             </CardContent>
           </FeatureCard>

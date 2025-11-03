@@ -260,43 +260,32 @@ export const LocationProvider = ({ children }: { children: React.ReactNode }) =>
         return;
       }
 
-      console.log('🏫 Loading nearby schools...');
+      console.log('🏫 Loading nearby schools from API...');
+      console.log(`   Location: ${state.currentLocation.latitude}, ${state.currentLocation.longitude}`);
       dispatch({ type: 'SET_LOADING', payload: true });
 
-      const response = await api.get('/chat/schools/nearby', {
+      const response = await api.get('/schools/nearby', {
         params: {
-          latitude: state.currentLocation.latitude,
-          longitude: state.currentLocation.longitude,
-          radius: 20 // 20km radius for schools
+          lat: state.currentLocation.latitude,
+          lng: state.currentLocation.longitude,
+          radius: 20000 // 20km radius for schools
         }
       });
+
+      console.log('   API Response:', response.data);
 
       if (response.data.success) {
         const schools = response.data.schools || [];
         console.log('✅ Schools loaded:', schools.length, 'schools found');
         dispatch({ type: 'SET_NEARBY_SCHOOLS', payload: schools });
-        
-        // Merge schools into chat rooms for display
-        const schoolChatRooms = schools.map((school: any) => ({
-          ...school,
-          type: 'school',
-          participants: school.participants || 0
-        }));
-        
-        // Combine with existing chat rooms but prioritize schools
-        const existingRooms = state.nearbyChatRooms.filter(room => room.type !== 'school');
-        const combinedRooms = [...existingRooms, ...schoolChatRooms];
-        
-        dispatch({ type: 'SET_NEARBY_CHAT_ROOMS', payload: combinedRooms });
-        
-        if (chatRoomsCallbackRef.current) {
-          chatRoomsCallbackRef.current(combinedRooms);
-        }
+      } else {
+        console.log('❌ Schools API returned success: false');
       }
     } catch (error: any) {
       const message = error.response?.data?.message || 'Fehler beim Laden der Schulen';
       dispatch({ type: 'SET_ERROR', payload: message });
       console.error('❌ Error loading nearby schools:', error);
+      console.error('   Error details:', error.response?.data);
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }

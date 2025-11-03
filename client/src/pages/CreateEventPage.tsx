@@ -269,7 +269,7 @@ const CreateEventPage: React.FC = () => {
 
       setSnackbar({
         open: true,
-        message: 'Event erfolgreich erstellt! Du wirst zu den Chat-Räumen weitergeleitet.',
+        message: 'Event erfolgreich erstellt! Du wirst zu Villages & Schools weitergeleitet.',
         severity: 'success'
       });
 

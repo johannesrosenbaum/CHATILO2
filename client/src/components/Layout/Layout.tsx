@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   AppBar,
@@ -59,8 +59,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const { currentLocation, nearbySchools } = useLocationContext();
+  const { currentLocation, nearbySchools, loadNearbySchools } = useLocationContext();
   const { chatRooms, getFavoriteRoomsData } = useChat();
+
+  // Load schools when location is available
+  useEffect(() => {
+    if (currentLocation && user && loadNearbySchools) {
+      console.log('🏫 Layout: Loading schools for location:', currentLocation);
+      loadNearbySchools();
+    }
+  }, [currentLocation, user, loadNearbySchools]);
 
   const menuItems = [
     { text: 'Startseite', icon: <HomeIcon />, path: '/' },

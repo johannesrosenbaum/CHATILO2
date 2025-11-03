@@ -196,6 +196,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/location', locationRoutes);
+app.use('/api/schools', require('./routes/schools')); // NEW: Schools API routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin', adminStatsRoutes);
 app.use('/api/ai', require('./routes/ai'));
