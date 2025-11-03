@@ -108,7 +108,9 @@ const upload = multer({
 });
 
 // Get nearby rooms based on location - KORRIGIERT
-router.get('/rooms/nearby', auth, async (req, res) => {
+// OLD ROUTE - DEPRECATED - Replaced by newer implementation at line ~474
+// This route used 'latitude' and 'longitude' params, new route uses 'lat' and 'lng'
+router.get('/rooms/nearby-old', auth, async (req, res) => {
   try {
     const { latitude, longitude, radius = 10000 } = req.query;
     if (!latitude || !longitude) {
