@@ -39,19 +39,11 @@ router.get('/nearby', auth, async (req, res) => {
     const schoolRadius = 15000; // 15km for schools
     const universityRadius = 25000; // 25km for universities and colleges
 
-    // Overpass API query for schools, universities, and colleges
+    // Optimized Overpass API query - uses single query with OR operator
     const overpassQuery = `
-      [out:json][timeout:25];
+      [out:json][timeout:15];
       (
-        node["amenity"="school"](around:${schoolRadius},${latitude},${longitude});
-        way["amenity"="school"](around:${schoolRadius},${latitude},${longitude});
-        relation["amenity"="school"](around:${schoolRadius},${latitude},${longitude});
-        node["amenity"="university"](around:${universityRadius},${latitude},${longitude});
-        way["amenity"="university"](around:${universityRadius},${latitude},${longitude});
-        relation["amenity"="university"](around:${universityRadius},${latitude},${longitude});
-        node["amenity"="college"](around:${universityRadius},${latitude},${longitude});
-        way["amenity"="college"](around:${universityRadius},${latitude},${longitude});
-        relation["amenity"="college"](around:${universityRadius},${latitude},${longitude});
+        nwr["amenity"~"^(school|university|college)$"](around:${universityRadius},${latitude},${longitude});
       );
       out center tags;
     `;
@@ -80,6 +72,10 @@ router.get('/nearby', auth, async (req, res) => {
       
       // Calculate distance
       const distance = calculateDistance(latitude, longitude, schoolLat, schoolLng);
+
+      // Apply radius filter based on type
+      const maxDistance = type === 'school' ? schoolRadius : universityRadius;
+      if (distance > maxDistance) return; // Skip if outside radius for this type
 
       // Create unique key based on name and approximate location
       const key = `${name.toLowerCase()}_${Math.round(schoolLat * 100)}_${Math.round(schoolLng * 100)}`;
