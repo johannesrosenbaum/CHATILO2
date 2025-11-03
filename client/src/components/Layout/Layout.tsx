@@ -454,9 +454,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                       },
                       transition: 'all 0.2s ease',
                     }}
-                    onClick={() => {
-                      // TODO: Navigate to school chat room
+                    onClick={async () => {
                       console.log('School clicked:', school);
+                      try {
+                        // Create a unique room ID for this school based on its OSM ID
+                        const schoolRoomId = `school_${school.id}`;
+                        
+                        // Try to find existing room or navigate to create one
+                        // For now, navigate to a school-specific route
+                        navigate(`/chat/school/${school.id}`, {
+                          state: { schoolData: school }
+                        });
+                      } catch (error) {
+                        console.error('Error navigating to school:', error);
+                      }
                     }}
                   >
                     <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
