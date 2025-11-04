@@ -507,6 +507,7 @@ router.get('/rooms/nearby', auth, async (req, res) => {
     // Filter rooms by distance
     const nearbyRooms = userRooms.filter(room => {
       if (!room.location || !room.location.latitude || !room.location.longitude) {
+        console.log(`   ⚠️ Room ${room.name} has no location data`);
         return false;
       }
 
@@ -516,6 +517,8 @@ router.get('/rooms/nearby', auth, async (req, res) => {
         room.location.latitude,
         room.location.longitude
       );
+
+      console.log(`   📏 ${room.name}: ${Math.round(distance/1000)}km (lat: ${room.location.latitude}, lng: ${room.location.longitude})`);
 
       return distance <= radiusMeters;
     });
