@@ -670,16 +670,23 @@ router.post('/rooms/initialize-school', auth, async (req, res) => {
 
 // Helper function to calculate distance
 function calculateDistance(lat1, lon1, lat2, lon2) {
+  // DEBUG: Log inputs
+  console.log(`      🔍 calculateDistance called: lat1=${lat1}, lon1=${lon1}, lat2=${lat2}, lon2=${lon2}`);
+  
   const R = 6371000; // Earth's radius in meters
   const φ1 = lat1 * Math.PI / 180;
   const φ2 = lat2 * Math.PI / 180;
   const Δφ = (lat2 - lat1) * Math.PI / 180;
   const Δλ = (lon2 - lon1) * Math.PI / 180;
 
+  console.log(`      🔍 Deltas: Δφ=${Δφ}, Δλ=${Δλ}`);
+
   const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
             Math.cos(φ1) * Math.cos(φ2) *
             Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  console.log(`      🔍 a=${a}, c=${c}, result=${R * c}m`);
 
   return R * c; // Distance in meters
 }
