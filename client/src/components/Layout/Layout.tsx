@@ -464,8 +464,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                           schoolId: school.id,
                           name: school.name,
                           type: school.type || 'school',
-                          latitude: school.coordinates.lat,
-                          longitude: school.coordinates.lng,
+                          latitude: school.latitude,
+                          longitude: school.longitude,
                           address: school.address,
                           operator: school.operator
                         });
