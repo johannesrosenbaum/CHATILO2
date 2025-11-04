@@ -43,6 +43,8 @@ import FavoriteButton from '../FavoriteButton';
 import { gradients } from '../../theme/theme';
 import { getAvatarUrl, getDisplayAvatar } from '../../utils/avatarUtils';
 import { ChatRoom } from '../../types';
+import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -457,16 +459,31 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     onClick={async () => {
                       console.log('School clicked:', school);
                       try {
-                        // Create a unique room ID for this school based on its OSM ID
-                        const schoolRoomId = `school_${school.id}`;
-                        
-                        // Try to find existing room or navigate to create one
-                        // For now, navigate to a school-specific route
-                        navigate(`/chat/school/${school.id}`, {
-                          state: { schoolData: school }
+                        // Initialize school room (create if doesn't exist)
+                        const response = await api.post('/api/chat/rooms/initialize-school', {
+                          schoolId: school.id,
+                          name: school.name,
+                          type: school.type || 'school',
+                          latitude: school.coordinates.lat,
+                          longitude: school.coordinates.lng,
+                          address: school.address,
+                          operator: school.operator
                         });
-                      } catch (error) {
-                        console.error('Error navigating to school:', error);
+
+                        if (response.data.success) {
+                          const room = response.data.room;
+                          console.log('✅ School room initialized:', room);
+                          
+                          // Navigate to the chat room
+                          navigate(`/chat/${room._id}`, {
+                            state: { room }
+                          });
+                        } else {
+                          toast.error('Fehler beim Öffnen des School-Chats');
+                        }
+                      } catch (error: any) {
+                        console.error('Error initializing school room:', error);
+                        toast.error(error.response?.data?.message || 'Fehler beim Öffnen des School-Chats');
                       }
                     }}
                   >

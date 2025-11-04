@@ -555,6 +555,116 @@ router.get('/rooms/nearby', auth, async (req, res) => {
   }
 });
 
+// Initialize school chat room (create if doesn't exist)
+router.post('/rooms/initialize-school', auth, async (req, res) => {
+  try {
+    const { schoolId, name, type, latitude, longitude, address, operator } = req.body;
+    
+    console.log(`🏫 [POST] /api/chat/rooms/initialize-school - User: ${req.user.id}`);
+    console.log(`   School: ${name} (${type})`);
+    console.log(`   Location: ${latitude}, ${longitude}`);
+
+    if (!schoolId || !name || !latitude || !longitude) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: schoolId, name, latitude, longitude'
+      });
+    }
+
+    // Generate unique roomId for this school
+    const roomId = `school_${schoolId}`;
+
+    // Check if room already exists
+    let room = await ChatRoom.findOne({ roomId });
+
+    if (room) {
+      console.log(`✅ School room already exists: ${name} (${room._id})`);
+      
+      // Add user as participant if not already
+      if (!room.participants.includes(req.user.id)) {
+        room.participants.push(req.user.id);
+        await room.save();
+        console.log(`   ✅ Added user as participant`);
+      }
+
+      return res.json({
+        success: true,
+        room: {
+          _id: room._id,
+          roomId: room.roomId,
+          name: room.name,
+          type: room.type,
+          subType: room.subType,
+          description: room.description,
+          location: room.location,
+          participants: room.participants,
+          isActive: room.isActive,
+          createdAt: room.createdAt,
+          lastActivity: room.lastActivity
+        },
+        message: 'School room already exists'
+      });
+    }
+
+    // Create new school room
+    const newRoom = new ChatRoom({
+      roomId,
+      name: name,
+      type: 'school',
+      subType: type, // 'school', 'university', 'college'
+      description: `Chat room for ${name}${operator ? ` (${operator})` : ''}`,
+      participants: [req.user.id],
+      createdBy: req.user.id,
+      location: {
+        latitude,
+        longitude,
+        address: address || `${name}`,
+        city: address?.city || '',
+        country: address?.country || 'Deutschland'
+      },
+      isActive: true,
+      createdAt: new Date(),
+      lastActivity: new Date(),
+      settings: {
+        isPublic: true,
+        allowMedia: true,
+        allowImages: true,
+        allowVideos: true,
+        allowFiles: true
+      }
+    });
+
+    const savedRoom = await newRoom.save();
+    console.log(`✅ NEW SCHOOL ROOM CREATED: ${name} (${savedRoom._id})`);
+
+    res.json({
+      success: true,
+      room: {
+        _id: savedRoom._id,
+        roomId: savedRoom.roomId,
+        name: savedRoom.name,
+        type: savedRoom.type,
+        subType: savedRoom.subType,
+        description: savedRoom.description,
+        location: savedRoom.location,
+        participants: savedRoom.participants,
+        isActive: savedRoom.isActive,
+        createdAt: savedRoom.createdAt,
+        lastActivity: savedRoom.lastActivity
+      },
+      message: 'School room created successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ [POST] /api/chat/rooms/initialize-school - Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to initialize school room',
+      details: error.message
+    });
+  }
+});
+
 // Helper function to calculate distance
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371000; // Earth's radius in meters
