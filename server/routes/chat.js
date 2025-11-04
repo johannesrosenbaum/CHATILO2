@@ -618,9 +618,9 @@ router.post('/rooms/initialize-school', auth, async (req, res) => {
       location: {
         latitude,
         longitude,
-        address: address || `${name}`,
-        city: address?.city || '',
-        country: address?.country || 'Deutschland'
+        address: typeof address === 'string' ? address : (address?.road || address?.suburb || name),
+        city: typeof address === 'object' ? (address?.city || address?.town || '') : '',
+        country: typeof address === 'object' ? (address?.country || 'Deutschland') : 'Deutschland'
       },
       isActive: true,
       createdAt: new Date(),
